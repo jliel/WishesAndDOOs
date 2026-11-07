@@ -7,6 +7,7 @@ from app.modules.auth.routes import auth_bp
 from app.modules.auth.service import ensure_demo_user_seeded
 from app.modules.dashboard.routes import dashboard_bp
 from app.modules.dashboard.service import ensure_demo_workspace_data_seeded
+from app.modules.finances.routes import finances_bp
 from app.modules.system.routes import system_bp
 
 
@@ -44,6 +45,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     app.register_blueprint(system_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(finances_bp)
 
     @app.errorhandler(TooManyRequests)
     def handle_rate_limit_exceeded(err):

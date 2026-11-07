@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { ColorMode, THEME_TOKENS, ThemeStyle } from "@/theme/tokens";
@@ -31,28 +32,28 @@ export const APP_NAV_TABS: NavTabItem[] = [
     label: "Dashboard",
     icon: "dashboard",
     accentKey: "finance",
-    screenStepLabel: "Screen 4 · Active",
+    screenStepLabel: "Screen 4 Â· Active",
   },
   {
     key: "finances",
     label: "Finances",
     icon: "account-balance-wallet",
     accentKey: "finance",
-    screenStepLabel: "Screen 5 · Next in Plan",
+    screenStepLabel: "Screen 5 Â· Next in Plan",
   },
   {
     key: "wishes",
     label: "Wishes",
     icon: "auto-awesome",
     accentKey: "wish",
-    screenStepLabel: "Screen 6 · Upcoming",
+    screenStepLabel: "Screen 6 Â· Upcoming",
   },
   {
     key: "doos",
     label: "DOOs",
     icon: "checklist",
     accentKey: "doo",
-    screenStepLabel: "Screen 8 · Upcoming",
+    screenStepLabel: "Screen 8 Â· Upcoming",
   },
 ];
 
@@ -804,9 +805,9 @@ export function AdaptiveShell({
                       fontFamily: "Plus Jakarta Sans",
                     }}
                   >
-                    Overview · {workspaceName}
+                    Overview Â· {workspaceName}
                   </Text>
-                  <Text style={{ color: tokens.border, fontSize: 12 }}>•</Text>
+                  <Text style={{ color: tokens.border, fontSize: 12 }}>â€¢</Text>
                   <Text
                     style={{
                       color: tokens.mutedForeground,
@@ -1284,7 +1285,7 @@ export function AdaptiveShell({
                             fontSize: 11,
                           }}
                         >
-                          {workspaceName} · {workspaceCurrency}
+                          {workspaceName} Â· {workspaceCurrency}
                         </Text>
                       </View>
                     </View>

@@ -4,19 +4,12 @@
 
 ---
 
-## 📌 Next Session Priority Queue (Screen 4 Refinements — Do Before Screen 5)
+## 📌 Next Session Priority Queue (Screen 6: Wishes List — Do Next)
 
-1. **Dashboard Background & Navbar Integration (`AdaptiveShell.tsx` & `dashboard.tsx`):**
-   - The current opaque `tokens.card` sidebar and header stand out too starkly against the ambient radial gradient on `/dashboard`. Soften the dashboard background and use translucent/glassmorphic or seamlessly blended nav surfaces so the navigation bars don't clash with the canvas.
-2. **Half-Height Top Nav on Full-Size PC (`isDesktop` in `AdaptiveShell.tsx`):**
-   - Reduce the Desktop top header bar to half its current height (~`36px–40px` compact single-line bar).
-3. **Desktop Settings Floating Mini-Panel Popover (`AdaptiveShell.tsx`):**
-   - Replace the full-width inline profile/settings banner with an anchored **floating mini-panel popover** (`position: "absolute"`, `top: 44, right: 0`, `zIndex: 50`, elevated shadow) that pops open directly under the Settings button without pushing dashboard content down.
-4. **Mobile Module Menu & Hamburger Overlap Panel (`AdaptiveShell.tsx`):**
-   - Ensure mobile viewports (`< 1024px`) have an unmistakable, always-accessible way to switch between modules (*Dashboard*, *Finances*, *Wishes*, *DOOs*).
-   - Add a **Hamburger menu button (`MaterialIcons name="menu"`)** on mobile that opens a full **overlapping drawer/panel** (modal overlay) containing module links and settings.
-5. **Theme Switcher Inside Settings Mini-Panel & Mobile Hamburger Drawer:**
-   - Put the live **Theme Style (`Classical`, `Pastel`, `Joyful`)** and **Color Mode (`Light`, `Dark`)** controls inside both the Desktop Settings popover and the Mobile Hamburger overlap panel.
+1. **Screen 6: Wishes List Screen (`/(app)/wishes`):**
+   - Backend: `WISHES` table, private image upload endpoint (`Pillow` EXIF stripping + signed URLs), `/wishes` CRUD endpoints.
+   - Frontend: Status/priority filters, mobile-first Wish cards (uploaded image, title, target price, linked Savings Goal progress bar, linked DOOs step count) + **Quick Add Wish Bottom Sheet** (with image upload picker & explicit **Save & Confirm**).
+   - Linking: Wire up linking between Wishes and Screen 5's Savings Goals.
 
 ---
 
@@ -34,10 +27,13 @@
   - `useErrorShake()` for Apple-style horizontal damped spring shake on form validation/auth errors.
   - `usePulseScale()` for tactile spring confirmation when auto-filling or transferring funds.
   - `useReducedMotion()` automatically respects `prefers-reduced-motion: reduce` and short-circuits in `NODE_ENV === "test"` so Jest tests stay fast and deterministic.
-  - **Full-Canvas Multi-Stop Radial Gradient with Rotating Perimeter Origin (`AmbientMeshBackground.tsx` + `GRADIENT_PERIMETER_POSES`):** Keeping a module-level `_lastGradientPose` and animating `translate3d(originX%, originY%, 0)` (`950ms cubic-bezier(0.16, 1, 0.3, 1)`) on a `240% × 240%` circular multi-stop `radial-gradient` (`0%` → `24%` → `48%` → `76%` → `100%`) plus an opposite-pole counter-radial glow smoothly shifts the gradient's origin around the perimeter on every screen change (`/welcome` `"bottom-to-top"` → `/login` `"corner-top-right"` → `/register` `"right-to-left"` → future screens) without any flat horizontal banding or washed-out white top edge.
-- **Material Icons (`MaterialIcons` from `@expo/vector-icons`) + Jest `expo-font` Setup (`jest.setup.js`):** Using `@expo/vector-icons/MaterialIcons` across all screens and components provides crisp, native-grade icons on Web, iOS, and Android with zero third-party SVG dependency bloat. In Jest (`apps/client/jest.setup.js`), mocking `expo-font` (`isLoaded: () => true, loadAsync: () => Promise.resolve()`) avoids `loadedNativeFonts.forEach is not a function` without triggering NativeWind Babel `_ReactNativeCSSInterop` out-of-scope variable errors.
+  - **Full-Canvas Multi-Stop Radial Gradient with Rotating Perimeter Origin (`AmbientMeshBackground.tsx` + `GRADIENT_PERIMETER_POSES`):** Keeping a module-level `_lastGradientPose` and animating `translate3d(originX%, originY%, 0)` (`950ms cubic-bezier(0.16, 1, 0.3, 1)`) on a `240% × 240%` circular multi-stop `radial-gradient` (`0%` → `24%` → `48%` → `76%` → `100%`) plus an opposite-pole counter-radial glow smoothly shifts the gradient's origin around the perimeter on every screen change (`/welcome` `"bottom-to-top"` → `/login` `"corner-top-right"` → `/register` `"right-to-left"` → `/dashboard` `"corner-bottom-right"` → `/finances` `"top-to-bottom"`).
+- **Finances 4-Pill Module Architecture (`apps/client/app/(app)/finances.tsx`):**
+  - Instant client-side tab switching across *Transactions*, *Budgets*, *Savings Goals*, and *Accounts*.
+  - Explicit Save & Confirm modals with dedicated form validations and tactile error shake.
 
 ### 2. Backend / Python Flask & Database
+- **Atomic Balance Updates & Reversals (`apps/api/app/modules/finances/service.py`):** Handling transaction creation and deletion with atomic balance adjustments on `Account` and `SavingsGoal` inside the DB transaction avoids race conditions and stale balances across the entire app.
 - **Isolated `.venv` inside `apps/api/.venv`:** Always invoke `.venv/bin/python`, `.venv/bin/pip`, and `PYTHONPATH=. .venv/bin/pytest` explicitly inside `apps/api`.
 - **Automatic SQLite Fallback When Docker Daemon Is Absent:** In `apps/api/app/config.py`, defaulting `SQLALCHEMY_DATABASE_URI` to a local SQLite file (`wishes_and_doos_dev.db`) when `DATABASE_URL` is not set allows local development and `/api/v1/health` database checks to work out-of-the-box on machines without Docker running, while remaining 100% ready for PostgreSQL via `DATABASE_URL`.
 - **In-Memory SQLite (`TestingConfig`) for `pytest`:** Using `sqlite:///:memory:` with `RATELIMIT_ENABLED = False` (unless specifically testing rate limits) runs the backend test suite in `< 1s`.
@@ -48,24 +44,14 @@
 
 ## ❌ What Didn't Work & How to Avoid It (Never Repeat)
 
-### 1. Expo Router + Node 26 Static SSR (`"output": "static"`)
-- **What Happened:** The default Expo SDK 52 template sets `"web": { "output": "static" }` in `app.json` and omits `query-string` as a direct dependency, causing `http://localhost:8081` to return `HTTP 500` (`Unable to resolve module query-string from expo-router/build/fork/getPathFromState.js`).
-- **Fix / Rule:** Keep `"output": "single"` in `apps/client/app.json` and keep `query-string@7.1.3` installed in `apps/client/package.json`. Always verify `http://localhost:8081` AND its `.bundle` URL return `HTTP 200` via `curl` before handing a screen to the user.
+### 1. PowerShell Script Path Parsing With Parentheses `(app)`
+- **What Happened:** In PowerShell, unquoted paths containing parentheses like `apps/client/app/(app)/finances.tsx` treat `(app)` as a subexpression command, failing `Get-Content` and producing an empty file if piped.
+- **Fix / Rule:** Always single-quote paths containing parentheses in PowerShell: `'apps/client/app/(app)/finances.tsx'` or use the agent's built-in file editing tools (`write_file` / `edit_file`).
 
-### 2. Running Expo Dev Server with `CI=1`
-- **What Happened:** Launching `CI=1 npx expo start --web` disables Metro watch mode and hot reloading (`Metro is running in CI mode, reloads are disabled`).
+### 2. Expo Router + Node 26 Static SSR (`"output": "static"`)
+- **What Happened:** The default Expo SDK 52 template sets `"web": { "output": "static" }` in `app.json` and omits `query-string` as a direct dependency, causing `http://localhost:8081` to return `HTTP 500`.
+- **Fix / Rule:** Keep `"output": "single"` in `apps/client/app.json` and keep `query-string@7.1.3` installed in `apps/client/package.json`.
+
+### 3. Running Expo Dev Server with `CI=1`
+- **What Happened:** Launching `CI=1 npx expo start --web` disables Metro watch mode and hot reloading.
 - **Fix / Rule:** Never set `CI=1` when starting the background Expo dev server (`IsDaemon: true`) for user review—run `npx expo start --web --port 8081` directly so live edits hot-reload in the user's browser.
-
-### 3. Jest Hanging After TanStack Query Tests
-- **What Happened:** `jest --watchAll` (the default script in `create-expo-app`) blocks in watch mode, and TanStack Query's garbage collection timer keeps Node alive for 1+ second after tests finish.
-- **Fix / Rule:** Keep `"test": "jest --watchAll=false --forceExit"` in `apps/client/package.json` so automated test runs exit cleanly and deterministically.
-
-### 4. Global or Unbundled Python Package Checks
-- **Rule:** Never run `pip install` globally; always use `apps/api/.venv/bin/pip` and update `apps/api/requirements.txt` via `apps/api/.venv/bin/pip freeze > requirements.txt`.
-
-### 5. Generic Stacked Card Layouts, Version Badges & Constrained Desktop Widths
-- **What Happened:** On Screen 1, constraining the container to `maxWidth: 460`, placing a `ThemePreviewBar` in the main window, showing `"v1.0"` / `"API Online"` badges, and using 3 generic stacked cards made the desktop view look like a narrow prototype.
-- **Fix / Rule:**
-  1. **Never** constrain desktop screens to mobile widths (`460px`); always implement responsive breakpoints (`< 768px` mobile, `768px–1023px` tablet, `≥ 1024px` full desktop up to `1240px`).
-  2. **Never** put version badges (`v1.0`), `API Online` badges, or theme switchers in the main screen content—theme controls belong in **Settings**.
-  3. Avoid generic 3-card vertical stacks; use editorial typography, asymmetric bento compositions, and interactive workspace previews.
