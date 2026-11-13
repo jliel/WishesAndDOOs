@@ -8,9 +8,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { AmbientMeshBackground } from "@/components/ui/AmbientMeshBackground";
 import { AdaptiveShell } from "@/components/layout/AdaptiveShell";
 import { Button } from "@/components/ui/Button";
@@ -281,6 +282,7 @@ function DooTaskRow({
 export default function DashboardScreen() {
   const router = useRouter();
   const { tokens } = useAppTheme();
+  const { t } = useLanguage();
   const { width } = useWindowDimensions();
   const isTwoColumn = width >= 900;
 
@@ -345,6 +347,14 @@ export default function DashboardScreen() {
       loadOverview();
     }
   }, [isAuthenticated, accessToken, loadOverview]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && accessToken) {
+        loadOverview();
+      }
+    }, [isAuthenticated, accessToken, loadOverview])
+  );
 
   const handleQuickDemoSignIn = async () => {
     setIsLoading(true);
@@ -787,7 +797,7 @@ export default function DashboardScreen() {
                             letterSpacing: 0.6,
                           }}
                         >
-                          Total Net Balance
+                          {t.totalNetBalance}
                         </Text>
                       </View>
 
@@ -881,7 +891,7 @@ export default function DashboardScreen() {
                               fontWeight: "600",
                             }}
                           >
-                            Monthly Income
+                            {t.incomeLabel}
                           </Text>
                         </View>
                         <Text
@@ -931,7 +941,7 @@ export default function DashboardScreen() {
                               fontWeight: "600",
                             }}
                           >
-                            Monthly Expense
+                            {t.expenseLabel}
                           </Text>
                         </View>
                         <Text
@@ -1326,12 +1336,21 @@ export default function DashboardScreen() {
                       justifyContent: "space-between",
                     }}
                   >
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Go to Finances screen budgets"
+                      onPress={() => router.push("/finances")}
+                      style={({ hovered }: any) => [
+                        {
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: 2,
+                          borderRadius: tokens.radiusControl,
+                          backgroundColor: hovered ? tokens.financeSoft : "transparent",
+                        },
+                        Platform.OS === "web" ? ({ cursor: "pointer", transition: "all 160ms ease" } as any) : null,
+                      ]}
                     >
                       <View
                         style={{
@@ -1350,16 +1369,19 @@ export default function DashboardScreen() {
                         />
                       </View>
                       <View>
-                        <Text
-                          style={{
-                            color: tokens.foreground,
-                            fontSize: 15,
-                            fontWeight: "800",
-                            fontFamily: "Plus Jakarta Sans",
-                          }}
-                        >
-                          Budget Health
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Text
+                            style={{
+                              color: tokens.foreground,
+                              fontSize: 15,
+                              fontWeight: "800",
+                              fontFamily: "Plus Jakarta Sans",
+                            }}
+                          >
+                            Budget Health
+                          </Text>
+                          <MaterialIcons name="arrow-forward" size={14} color={tokens.mutedForeground} />
+                        </View>
                         <Text
                           style={{
                             color: tokens.mutedForeground,
@@ -1369,7 +1391,7 @@ export default function DashboardScreen() {
                           Monthly Category Limits ({overview.budget_health.period_month})
                         </Text>
                       </View>
-                    </View>
+                    </Pressable>
 
                     <View
                       style={{
@@ -1524,12 +1546,21 @@ export default function DashboardScreen() {
                       justifyContent: "space-between",
                     }}
                   >
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Go to Wishes screen"
+                      onPress={() => router.push("/wishes")}
+                      style={({ hovered }: any) => [
+                        {
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: 2,
+                          borderRadius: tokens.radiusControl,
+                          backgroundColor: hovered ? tokens.wishSoft : "transparent",
+                        },
+                        Platform.OS === "web" ? ({ cursor: "pointer", transition: "all 160ms ease" } as any) : null,
+                      ]}
                     >
                       <View
                         style={{
@@ -1548,16 +1579,19 @@ export default function DashboardScreen() {
                         />
                       </View>
                       <View>
-                        <Text
-                          style={{
-                            color: tokens.foreground,
-                            fontSize: 15,
-                            fontWeight: "800",
-                            fontFamily: "Plus Jakarta Sans",
-                          }}
-                        >
-                          Top Wishes
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Text
+                            style={{
+                              color: tokens.foreground,
+                              fontSize: 15,
+                              fontWeight: "800",
+                              fontFamily: "Plus Jakarta Sans",
+                            }}
+                          >
+                            Top Wishes
+                          </Text>
+                          <MaterialIcons name="arrow-forward" size={14} color={tokens.mutedForeground} />
+                        </View>
                         <Text
                           style={{
                             color: tokens.mutedForeground,
@@ -1567,7 +1601,7 @@ export default function DashboardScreen() {
                           Goal Funding & Linked DOO Progress
                         </Text>
                       </View>
-                    </View>
+                    </Pressable>
 
                     <View
                       style={{
@@ -1592,16 +1626,22 @@ export default function DashboardScreen() {
 
                   <View style={{ gap: 12 }}>
                     {overview.top_wishes.items.map((wish) => (
-                      <View
+                      <Pressable
                         key={wish.id}
-                        style={{
-                          padding: 13,
-                          borderRadius: tokens.radiusControl,
-                          backgroundColor: tokens.background,
-                          borderWidth: 1,
-                          borderColor: tokens.border,
-                          gap: 9,
-                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View wish details for ${wish.title}`}
+                        onPress={() => router.push(`/wishes/${wish.id}` as any)}
+                        style={({ hovered }: any) => [
+                          {
+                            padding: 13,
+                            borderRadius: tokens.radiusControl,
+                            backgroundColor: hovered ? tokens.muted : tokens.background,
+                            borderWidth: 1,
+                            borderColor: hovered ? tokens.wish : tokens.border,
+                            gap: 9,
+                          },
+                          Platform.OS === "web" ? ({ cursor: "pointer", transition: "all 160ms ease" } as any) : null,
+                        ]}
                       >
                         <View
                           style={{
@@ -1716,7 +1756,7 @@ export default function DashboardScreen() {
                             {wish.priority.toUpperCase()}
                           </Text>
                         )}
-                      </View>
+                      </Pressable>
                     ))}
                   </View>
                 </Card>
@@ -1742,12 +1782,21 @@ export default function DashboardScreen() {
                       justifyContent: "space-between",
                     }}
                   >
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Go to DOOs screen"
+                      onPress={() => router.push("/doos")}
+                      style={({ hovered }: any) => [
+                        {
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: 2,
+                          borderRadius: tokens.radiusControl,
+                          backgroundColor: hovered ? tokens.dooSoft : "transparent",
+                        },
+                        Platform.OS === "web" ? ({ cursor: "pointer", transition: "all 160ms ease" } as any) : null,
+                      ]}
                     >
                       <View
                         style={{
@@ -1766,16 +1815,19 @@ export default function DashboardScreen() {
                         />
                       </View>
                       <View>
-                        <Text
-                          style={{
-                            color: tokens.foreground,
-                            fontSize: 15,
-                            fontWeight: "800",
-                            fontFamily: "Plus Jakarta Sans",
-                          }}
-                        >
-                          Today's DOOs
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Text
+                            style={{
+                              color: tokens.foreground,
+                              fontSize: 15,
+                              fontWeight: "800",
+                              fontFamily: "Plus Jakarta Sans",
+                            }}
+                          >
+                            Today's DOOs
+                          </Text>
+                          <MaterialIcons name="arrow-forward" size={14} color={tokens.mutedForeground} />
+                        </View>
                         <Text
                           style={{
                             color: tokens.mutedForeground,
@@ -1785,7 +1837,7 @@ export default function DashboardScreen() {
                           Tap a task to stage · Explicit Save & Confirm
                         </Text>
                       </View>
-                    </View>
+                    </Pressable>
 
                     <View
                       style={{
@@ -1903,12 +1955,21 @@ export default function DashboardScreen() {
                       justifyContent: "space-between",
                     }}
                   >
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Go to Finances screen transactions"
+                      onPress={() => router.push("/finances")}
+                      style={({ hovered }: any) => [
+                        {
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: 2,
+                          borderRadius: tokens.radiusControl,
+                          backgroundColor: hovered ? tokens.muted : "transparent",
+                        },
+                        Platform.OS === "web" ? ({ cursor: "pointer", transition: "all 160ms ease" } as any) : null,
+                      ]}
                     >
                       <View
                         style={{
@@ -1927,16 +1988,19 @@ export default function DashboardScreen() {
                         />
                       </View>
                       <View>
-                        <Text
-                          style={{
-                            color: tokens.foreground,
-                            fontSize: 15,
-                            fontWeight: "800",
-                            fontFamily: "Plus Jakarta Sans",
-                          }}
-                        >
-                          Recent Activity
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Text
+                            style={{
+                              color: tokens.foreground,
+                              fontSize: 15,
+                              fontWeight: "800",
+                              fontFamily: "Plus Jakarta Sans",
+                            }}
+                          >
+                            Recent Activity
+                          </Text>
+                          <MaterialIcons name="arrow-forward" size={14} color={tokens.mutedForeground} />
+                        </View>
                         <Text
                           style={{
                             color: tokens.mutedForeground,
@@ -1946,7 +2010,7 @@ export default function DashboardScreen() {
                           Latest Workspace Transactions
                         </Text>
                       </View>
-                    </View>
+                    </Pressable>
                   </View>
 
                   <View style={{ gap: 10 }}>

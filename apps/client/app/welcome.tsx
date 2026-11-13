@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import Head from "expo-router/head";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { Button } from "@/components/ui/Button";
@@ -87,6 +88,25 @@ export default function WelcomeScreen() {
       style={{ flex: 1, backgroundColor: tokens.background }}
       edges={["top", "bottom"]}
     >
+      <Head>
+        <title>Wishes &amp; DOOs — Fund your wishes, finish your DOOs</title>
+        <meta
+          name="description"
+          content="A calm, multi-tenant personal finance, wishlist, and task workspace. Track finances, save for wishes, and organize DOOs with clear explicit controls."
+        />
+        <link rel="canonical" href="https://wishesanddoos.app/welcome" />
+        <meta
+          property="og:title"
+          content="Wishes &amp; DOOs — Fund your wishes, finish your DOOs"
+        />
+        <meta
+          property="og:description"
+          content="Your finances, wishlist goals, and daily tasks—connected in one calm, modern space."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://wishesanddoos.app/welcome" />
+        <meta name="twitter:card" content="summary_large_image" />
+      </Head>
       <AmbientMeshBackground variant="bottom-to-top" />
       <ScrollView
         contentContainerStyle={{
@@ -190,6 +210,8 @@ export default function WelcomeScreen() {
             ]}
           >
             <Text
+              accessibilityRole="header"
+              aria-level={1}
               style={{
                 color: tokens.foreground,
                 fontSize: isDesktop ? 56 : isTablet ? 44 : 36,
@@ -205,6 +227,8 @@ export default function WelcomeScreen() {
             </Text>
 
             <Text
+              accessibilityRole="header"
+              aria-level={1}
               style={{
                 color: tokens.mutedForeground,
                 fontSize: isDesktop ? 18 : 16,
@@ -300,6 +324,8 @@ export default function WelcomeScreen() {
                       />
                     </View>
                     <Text
+                      accessibilityRole="header"
+                      aria-level={2}
                       style={{
                         color: tokens.foreground,
                         fontSize: 16,
@@ -470,6 +496,8 @@ export default function WelcomeScreen() {
                         />
                       </View>
                       <Text
+                        accessibilityRole="header"
+                        aria-level={2}
                         style={{
                           color: tokens.foreground,
                           fontSize: 16,
@@ -626,6 +654,8 @@ export default function WelcomeScreen() {
                       />
                     </View>
                     <Text
+                      accessibilityRole="header"
+                      aria-level={2}
                       style={{
                         color: tokens.foreground,
                         fontSize: 16,
@@ -654,6 +684,7 @@ export default function WelcomeScreen() {
                       key={item.id}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: item.done }}
+                      aria-checked={item.done}
                       accessibilityLabel={item.title}
                       onPress={() => handleToggleDoo(item.id)}
                       style={(state: any) => ({

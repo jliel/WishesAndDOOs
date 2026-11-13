@@ -16,6 +16,7 @@ from app.modules.finances.schemas import (
     SavingsGoalFundRequest,
     SavingsGoalUpdateRequest,
     TransactionCreateRequest,
+    TransactionUpdateRequest,
 )
 from app.modules.workspaces.models import Category, Workspace, WorkspaceMember
 
@@ -390,6 +391,92 @@ def create_transaction(
 
     return _serialize_transaction(tx, category=category, account=account)
 
+
+def update_transaction(
+    user: User,
+    transaction_id: str,
+    payload: TransactionUpdateRequest,
+    ip_address: str | None = None,
+) -> dict[str, Any]:
+    tx = db.session.query(Transaction).filter_by(id=transaction_id).first()
+    if not tx:
+        raise FinancesError(
+            "Transaction not found.", code="not_found", status_code=404
+        )
+
+    resolve_user_workspace(user, tx.workspace_id)
+
+    # If amount, type, or account is changed, revert previous balance impact first
+    old_account = db.session.query(Account).filter_by(id=tx.account_id).first()
+    if old_account:
+        if tx.type == "income":
+            old_account.balance -= tx.amount
+        elif tx.type in ("expense", "transfer"):
+            old_account.balance += tx.amount
+
+    if tx.savings_goal_id:
+        old_goal = db.session.query(SavingsGoal).filter_by(id=tx.savings_goal_id).first()
+        if old_goal:
+            old_goal.current_amount = max(Decimal("0.00"), old_goal.current_amount - tx.amount)
+
+    # Apply updates
+    if payload.account_id:
+        new_acc = db.session.query(Account).filter_by(id=payload.account_id, workspace_id=tx.workspace_id).first()
+        if not new_acc:
+            raise FinancesError("Target account not found in workspace.", code="account_not_found", status_code=404)
+        tx.account_id = payload.account_id
+    if payload.category_id is not None:
+        clean_cat = payload.category_id if payload.category_id not in ("", "none") else None
+        if clean_cat:
+            cat = db.session.query(Category).filter_by(id=clean_cat, workspace_id=tx.workspace_id).first()
+            if not cat:
+                raise FinancesError("Target category not found in workspace.", code="category_not_found", status_code=404)
+        tx.category_id = clean_cat
+    if payload.savings_goal_id is not None:
+        clean_goal = payload.savings_goal_id if payload.savings_goal_id not in ("", "none") else None
+        if clean_goal:
+            goal = db.session.query(SavingsGoal).filter_by(id=clean_goal, workspace_id=tx.workspace_id).first()
+            if not goal:
+                raise FinancesError("Target savings goal not found in workspace.", code="savings_goal_not_found", status_code=404)
+        tx.savings_goal_id = clean_goal
+    if payload.type:
+        tx.type = payload.type
+    if payload.amount is not None:
+        tx.amount = payload.amount
+    if payload.description is not None:
+        tx.description = payload.description.strip()
+    if payload.transaction_date is not None:
+        tx.transaction_date = payload.transaction_date
+
+    # Apply new balance impact
+    current_account = db.session.query(Account).filter_by(id=tx.account_id).first()
+    if current_account:
+        if tx.type == "income":
+            current_account.balance += tx.amount
+        elif tx.type in ("expense", "transfer"):
+            current_account.balance -= tx.amount
+
+    if tx.savings_goal_id:
+        current_goal = db.session.query(SavingsGoal).filter_by(id=tx.savings_goal_id).first()
+        if current_goal:
+            current_goal.current_amount += tx.amount
+
+    db.session.commit()
+
+    record_audit_event(
+        user_id=user.id,
+        workspace_id=tx.workspace_id,
+        event_type="transaction_updated",
+        metadata={
+            "transaction_id": tx.id,
+            "amount": float(tx.amount),
+            "description": tx.description,
+            "type": tx.type,
+        },
+        ip_address=ip_address,
+    )
+
+    return _serialize_transaction(tx)
 
 def delete_transaction(
     user: User, transaction_id: str, ip_address: str | None = None

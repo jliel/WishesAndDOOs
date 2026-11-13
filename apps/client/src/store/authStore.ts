@@ -38,7 +38,7 @@ function loadInitialSession(): Pick<
             workspaces: parsed.workspaces || [],
             currentWorkspace: parsed.workspaces?.[0] || null,
             accessToken: parsed.access_token,
-            refreshToken: parsed.refresh_token || null,
+            refreshToken: null, // Refresh token is held in HttpOnly cookie
             isAuthenticated: true,
           };
         }
@@ -68,7 +68,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       window.localStorage
     ) {
       try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        // Security Hardening: Never store refresh token in Web localStorage.
+        // It is protected in an HttpOnly, Secure, SameSite cookie.
+        const safePayload = {
+          access_token: payload.access_token,
+          user: payload.user,
+          workspaces: payload.workspaces,
+        };
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(safePayload));
       } catch {
         // Ignore storage write errors
       }

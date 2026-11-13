@@ -9,17 +9,20 @@ system_bp = Blueprint("system", __name__, url_prefix="/api/v1")
 
 @system_bp.get("/health")
 def health_check():
-    """Health & capabilities endpoint used by the Welcome Screen and monitoring."""
+    """Health & capabilities endpoint used by the Welcome Screen and container monitoring."""
     db_status = "connected"
     try:
         db.session.execute(text("SELECT 1"))
     except Exception:
         db_status = "disconnected"
 
+    status_code = 200 if db_status == "connected" else 503
+    overall_status = "ok" if db_status == "connected" else "degraded"
+
     return (
         jsonify(
             {
-                "status": "ok",
+                "status": overall_status,
                 "service": current_app.config.get("APP_NAME", "WishesAndDOOs API"),
                 "version": current_app.config.get("API_VERSION", "1.0.0"),
                 "database": db_status,
@@ -32,5 +35,5 @@ def health_check():
                 },
             }
         ),
-        200,
+        status_code,
     )

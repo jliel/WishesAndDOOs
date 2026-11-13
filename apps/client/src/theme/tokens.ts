@@ -24,6 +24,9 @@ export interface SemanticTokenSet {
   radiusCard: number;
   radiusControl: number;
   shadowColor: string;
+  fontSans: string;
+  fontDisplay: string;
+  fontMono: string;
 }
 
 export const THEME_TOKENS: Record<ThemeStyle, Record<ColorMode, SemanticTokenSet>> = {
@@ -51,6 +54,9 @@ export const THEME_TOKENS: Record<ThemeStyle, Record<ColorMode, SemanticTokenSet
       radiusCard: 18,
       radiusControl: 12,
       shadowColor: "#0F172A",
+      fontSans: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontDisplay: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontMono: "'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
     },
     dark: {
       label: "Classical",
@@ -75,6 +81,9 @@ export const THEME_TOKENS: Record<ThemeStyle, Record<ColorMode, SemanticTokenSet
       radiusCard: 18,
       radiusControl: 12,
       shadowColor: "#000000",
+      fontSans: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontDisplay: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontMono: "'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
     },
   },
   pastel: {
@@ -101,6 +110,9 @@ export const THEME_TOKENS: Record<ThemeStyle, Record<ColorMode, SemanticTokenSet
       radiusCard: 20,
       radiusControl: 14,
       shadowColor: "#312E81",
+      fontSans: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontDisplay: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontMono: "'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
     },
     dark: {
       label: "Pastel",
@@ -125,6 +137,9 @@ export const THEME_TOKENS: Record<ThemeStyle, Record<ColorMode, SemanticTokenSet
       radiusCard: 20,
       radiusControl: 14,
       shadowColor: "#000000",
+      fontSans: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontDisplay: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontMono: "'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
     },
   },
   joyful: {
@@ -151,6 +166,9 @@ export const THEME_TOKENS: Record<ThemeStyle, Record<ColorMode, SemanticTokenSet
       radiusCard: 24,
       radiusControl: 999,
       shadowColor: "#7C2D12",
+      fontSans: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontDisplay: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontMono: "'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
     },
     dark: {
       label: "Joyful",
@@ -175,6 +193,9 @@ export const THEME_TOKENS: Record<ThemeStyle, Record<ColorMode, SemanticTokenSet
       radiusCard: 24,
       radiusControl: 999,
       shadowColor: "#000000",
+      fontSans: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontDisplay: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontMono: "'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace",
     },
   },
 };

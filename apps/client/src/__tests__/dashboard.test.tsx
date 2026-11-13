@@ -10,6 +10,7 @@ jest.mock("expo-router", () => ({
     push: jest.fn(),
     replace: jest.fn(),
   }),
+  useFocusEffect: jest.fn(),
 }));
 
 jest.mock("react-native-safe-area-context", () => {
@@ -259,12 +260,12 @@ describe("Screen 4: Dashboard / Overview Screen & App Shell", () => {
       </ThemeProvider>
     );
 
-    // 4 Navigation Tabs + Top Header Avatar
+    // 4 Navigation Tabs + Hamburger Menu on Mobile
     expect(getByLabelText("Navigate to Dashboard")).toBeTruthy();
     expect(getByLabelText("Navigate to Finances")).toBeTruthy();
     expect(getByLabelText("Navigate to Wishes")).toBeTruthy();
     expect(getByLabelText("Navigate to DOOs")).toBeTruthy();
-    expect(getByLabelText("Open Profile and Settings")).toBeTruthy();
+    expect(getByLabelText("Open navigation menu")).toBeTruthy();
 
     await waitFor(() => {
       // Total Net Balance & Cashflow

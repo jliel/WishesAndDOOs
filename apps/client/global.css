@@ -1,12 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body,
+:root {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+}
+
+html,
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
 * {
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: inherit;
+}
+
+/* Tabular numbers for financial and numerical figures */
+.tabular-nums,
+[data-tabular-nums="true"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 :root,
@@ -27,91 +48,91 @@ body,
   --color-doo-soft: #EFF6FF;
   --color-warning: #D97706;
   --color-destructive: #DC2626;
-  --radius-card: 18px;
+  --radius-card: 16px;
   --radius-control: 12px;
 }
 
 .dark,
 .dark[data-theme="classical"] {
   --color-background: #090D16;
-  --color-card: #131B2E;
-  --color-muted: #1E293B;
-  --color-foreground: #F8FAFC;
-  --color-muted-foreground: #94A3B8;
-  --color-border: #26334D;
-  --color-primary: #F8FAFC;
-  --color-primary-foreground: #090D16;
-  --color-finance: #34D399;
-  --color-finance-soft: #062E22;
-  --color-wish: #A78BFA;
-  --color-wish-soft: #23183E;
-  --color-doo: #60A5FA;
-  --color-doo-soft: #13233F;
-  --color-warning: #FBBF24;
-  --color-destructive: #F87171;
-  --radius-card: 18px;
+  --color-card: #111827;
+  --color-muted: #1F2937;
+  --color-foreground: #F9FAFB;
+  --color-muted-foreground: #9CA3AF;
+  --color-border: #1F2937;
+  --color-primary: #F9FAFB;
+  --color-primary-foreground: #111827;
+  --color-finance: #10B981;
+  --color-finance-soft: #064E3B;
+  --color-wish: #8B5CF6;
+  --color-wish-soft: #31135E;
+  --color-doo: #3B82F6;
+  --color-doo-soft: #1E3A8A;
+  --color-warning: #F59E0B;
+  --color-destructive: #EF4444;
+  --radius-card: 16px;
   --radius-control: 12px;
 }
 
 [data-theme="pastel"] {
-  --color-background: #FAF8FF;
+  --color-background: #FAF5FF;
   --color-card: #FFFFFF;
-  --color-muted: #F3EFFB;
-  --color-foreground: #1E1B4B;
-  --color-muted-foreground: #6E6A7C;
-  --color-border: #E9E3F5;
-  --color-primary: #5B5BD6;
+  --color-muted: #F3E8FF;
+  --color-foreground: #3B0764;
+  --color-muted-foreground: #7E22CE;
+  --color-border: #E9D5FF;
+  --color-primary: #6B21A8;
   --color-primary-foreground: #FFFFFF;
-  --color-finance: #2E9075;
-  --color-finance-soft: #EAF6F2;
-  --color-wish: #9353D3;
-  --color-wish-soft: #F6EFFC;
-  --color-doo: #3B82F6;
-  --color-doo-soft: #EDF4FF;
-  --color-warning: #D97706;
+  --color-finance: #0D9488;
+  --color-finance-soft: #F0FDFA;
+  --color-wish: #9333EA;
+  --color-wish-soft: #FAF5FF;
+  --color-doo: #4F46E5;
+  --color-doo-soft: #EEF2FF;
+  --color-warning: #EA580C;
   --color-destructive: #E11D48;
   --radius-card: 20px;
   --radius-control: 14px;
 }
 
 .dark[data-theme="pastel"] {
-  --color-background: #13141C;
-  --color-card: #1B1D28;
-  --color-muted: #252836;
-  --color-foreground: #F4F4F6;
-  --color-muted-foreground: #A3A0B8;
-  --color-border: #2E3244;
-  --color-primary: #A5B4FC;
-  --color-primary-foreground: #13141C;
-  --color-finance: #6EE7B7;
-  --color-finance-soft: #132F28;
+  --color-background: #120A21;
+  --color-card: #1A1033;
+  --color-muted: #271947;
+  --color-foreground: #FAF5FF;
+  --color-muted-foreground: #C084FC;
+  --color-border: #3B2464;
+  --color-primary: #A855F7;
+  --color-primary-foreground: #120A21;
+  --color-finance: #2DD4BF;
+  --color-finance-soft: #08332F;
   --color-wish: #C084FC;
-  --color-wish-soft: #2B1F3F;
-  --color-doo: #93C5FD;
-  --color-doo-soft: #192942;
-  --color-warning: #FBBF24;
+  --color-wish-soft: #3B1B54;
+  --color-doo: #818CF8;
+  --color-doo-soft: #1E1B4B;
+  --color-warning: #FB923C;
   --color-destructive: #FB7185;
   --radius-card: 20px;
   --radius-control: 14px;
 }
 
 [data-theme="joyful"] {
-  --color-background: #FFFDF9;
+  --color-background: #FFFDF5;
   --color-card: #FFFFFF;
-  --color-muted: #FFF5EB;
-  --color-foreground: #1C1917;
-  --color-muted-foreground: #78716C;
-  --color-border: #F5E6D3;
-  --color-primary: #F97316;
+  --color-muted: #FEF3C7;
+  --color-foreground: #451A03;
+  --color-muted-foreground: #92400E;
+  --color-border: #FDE68A;
+  --color-primary: #D97706;
   --color-primary-foreground: #FFFFFF;
-  --color-finance: #10B981;
+  --color-finance: #059669;
   --color-finance-soft: #ECFDF5;
-  --color-wish: #EC4899;
+  --color-wish: #DB2777;
   --color-wish-soft: #FDF2F8;
   --color-doo: #0284C7;
   --color-doo-soft: #F0F9FF;
-  --color-warning: #F59E0B;
-  --color-destructive: #EF4444;
+  --color-warning: #D97706;
+  --color-destructive: #DC2626;
   --radius-card: 24px;
   --radius-control: 9999px;
 }
@@ -135,4 +156,26 @@ body,
   --color-destructive: #F87171;
   --radius-card: 24px;
   --radius-control: 9999px;
+}
+
+/* Legibility enhancements for bold small text */
+.font-bold,
+[style*="fontWeight: 700"],
+[style*="fontWeight: '700'"],
+[style*='fontWeight: "700"'],
+[style*="fontWeight: 800"],
+[style*="fontWeight: '800'"],
+[style*='fontWeight: "800"'],
+[style*="fontWeight: 900"],
+[style*="fontWeight: '900'"],
+[style*='fontWeight: "900"'] {
+  letter-spacing: 0.025em;
+}
+
+/* Extra letter tracking specifically for compact uppercase and small bold labels */
+.tracking-wider,
+[style*="textTransform: 'uppercase'"],
+[style*='textTransform: "uppercase"'],
+[style*="textTransform: uppercase"] {
+  letter-spacing: 0.06em;
 }

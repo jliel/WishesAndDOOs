@@ -299,3 +299,99 @@ def test_tenant_isolation_between_different_users(client):
     )
     assert resp.status_code == 403
     assert resp.get_json()["error"] == "forbidden"
+
+
+def test_transaction_update_and_audit_logging(client):
+    token, workspace_id = _login_demo(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Get account
+    accs_resp = client.get(
+        f"/api/v1/finances/accounts?workspace_id={workspace_id}",
+        headers=headers,
+    )
+    acc = accs_resp.get_json()["accounts"][0]
+
+    # 2. Create transaction
+    create_resp = client.post(
+        "/api/v1/finances/transactions",
+        headers=headers,
+        json={
+            "workspace_id": workspace_id,
+            "account_id": acc["id"],
+            "type": "expense",
+            "amount": "50.00",
+            "description": "Original Description",
+            "transaction_date": "2026-11-08",
+        },
+    )
+    assert create_resp.status_code == 201
+    tx_id = create_resp.get_json()["transaction"]["id"]
+
+    # 3. Update transaction (verifies H5: no 500 error on audit event)
+    update_resp = client.patch(
+        f"/api/v1/finances/transactions/{tx_id}",
+        headers=headers,
+        json={
+            "amount": "75.00",
+            "description": "Updated Description",
+        },
+    )
+    assert update_resp.status_code == 200
+    updated_tx = update_resp.get_json()["transaction"]
+    assert updated_tx["amount"] == 75.00
+    assert updated_tx["description"] == "Updated Description"
+
+    # 4. Safe limit test (verifies M6: invalid limit does not crash)
+    list_resp = client.get(
+        f"/api/v1/finances/transactions?workspace_id={workspace_id}&limit=invalid_abc",
+        headers=headers,
+    )
+    assert list_resp.status_code == 200
+    assert "transactions" in list_resp.get_json()
+
+
+def test_cross_tenant_transaction_update_rejected(client):
+    # Register User B
+    reg_resp = client.post(
+        "/api/v1/auth/register",
+        json={
+            "display_name": "User Gamma",
+            "email": "gamma@test.com",
+            "password": "Password123!Safe",
+            "currency": "USD",
+        },
+    )
+    token_b = reg_resp.get_json()["access_token"]
+    ws_b = reg_resp.get_json()["workspaces"][0]["id"]
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    # Create account and transaction for User B
+    acc_b = client.post(
+        "/api/v1/finances/accounts",
+        headers=headers_b,
+        json={"workspace_id": ws_b, "name": "B Checking", "type": "checking", "balance": "100.00"},
+    ).get_json()["account"]
+
+    tx_b = client.post(
+        "/api/v1/finances/transactions",
+        headers=headers_b,
+        json={"workspace_id": ws_b, "account_id": acc_b["id"], "type": "expense", "amount": "20.00", "description": "B Expense"},
+    ).get_json()["transaction"]
+
+    # Demo User A
+    token_a, ws_a = _login_demo(client)
+    goals_a = client.get(
+        f"/api/v1/finances/savings-goals?workspace_id={ws_a}",
+        headers={"Authorization": f"Bearer {token_a}"},
+    ).get_json()["savings_goals"]
+    goal_a_id = goals_a[0]["id"]
+
+    # User B tries to attach their transaction to User A's savings goal -> 404 (H3 fix)
+    patch_resp = client.patch(
+        f"/api/v1/finances/transactions/{tx_b['id']}",
+        headers=headers_b,
+        json={"savings_goal_id": goal_a_id},
+    )
+    assert patch_resp.status_code == 404
+    assert patch_resp.get_json()["error"] == "savings_goal_not_found"

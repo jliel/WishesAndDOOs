@@ -5,7 +5,9 @@ import {
   Platform,
   Pressable,
   PressableProps,
+  StyleProp,
   Text,
+  ViewStyle,
 } from "react-native";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useInteractiveMotion } from "@/lib/motion";
@@ -13,12 +15,14 @@ import { useInteractiveMotion } from "@/lib/motion";
 export type ButtonVariant =
   | "primary"
   | "finance"
+  | "wish"
+  | "destructive"
   | "secondary"
   | "outline"
   | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
 
-export interface ButtonProps extends Omit<PressableProps, "children"> {
+export interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
   label: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -26,6 +30,7 @@ export interface ButtonProps extends Omit<PressableProps, "children"> {
   icon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   fullWidth?: boolean;
+  style?: StyleProp<ViewStyle> | ((state: { pressed: boolean }) => StyleProp<ViewStyle>);
 }
 
 export function Button({
@@ -58,62 +63,86 @@ export function Button({
     onPressIn: handlePressIn,
     onPressOut: handlePressOut,
   } = useInteractiveMotion({
-    hoverScale: size === "sm" ? 1.025 : 1.016,
+    hoverScale: 1.02,
     pressScale: 0.97,
     hoverLift: -1.5,
-    iconSlide: 3,
+    iconSlide: 2,
     disabled: isDisabled,
   });
 
   const heightMap: Record<ButtonSize, number> = {
-    sm: 38,
-    md: 44,
-    lg: 52,
+    sm: 36,
+    md: 42,
+    lg: 48,
   };
 
-  const bgMap: Record<ButtonVariant, string> = {
-    primary: tokens.primary,
-    finance: tokens.finance,
-    secondary: isHovered ? tokens.dooSoft : tokens.muted,
-    outline: isHovered ? tokens.muted : tokens.card,
-    ghost: isHovered ? tokens.muted : "transparent",
+  // Color logic for default & hover states
+  const getButtonTheme = () => {
+    switch (variant) {
+      case "primary":
+      case "wish":
+        return {
+          bg: isHovered ? (isDark ? "#8B5CF6" : "#6D28D9") : tokens.primary,
+          border: isHovered ? (isDark ? "#A78BFA" : "#5B21B6") : tokens.primary,
+          text: tokens.primaryForeground,
+          borderWidth: 1,
+        };
+      case "finance":
+        return {
+          bg: isHovered ? (isDark ? "#10B981" : "#047857") : tokens.finance,
+          border: isHovered ? (isDark ? "#34D399" : "#065F46") : tokens.finance,
+          text: tokens.primaryForeground,
+          borderWidth: 1,
+        };
+      case "destructive":
+        return {
+          bg: isHovered ? (isDark ? "#EF4444" : "#B91C1C") : tokens.destructive,
+          border: isHovered ? (isDark ? "#F87171" : "#991B1B") : tokens.destructive,
+          text: tokens.primaryForeground,
+          borderWidth: 1,
+        };
+      case "secondary":
+        return {
+          bg: isHovered ? tokens.dooSoft : tokens.muted,
+          border: isHovered ? tokens.doo : tokens.border,
+          text: isHovered ? tokens.doo : tokens.foreground,
+          borderWidth: 1,
+        };
+      case "outline":
+        return {
+          bg: isHovered
+            ? (isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(15, 23, 42, 0.05)")
+            : tokens.card,
+          border: isHovered ? tokens.foreground : tokens.border,
+          text: tokens.foreground,
+          borderWidth: 1,
+        };
+      case "ghost":
+        return {
+          bg: isHovered
+            ? (isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(15, 23, 42, 0.06)")
+            : "transparent",
+          border: "transparent",
+          text: isHovered ? tokens.foreground : tokens.mutedForeground,
+          borderWidth: 0,
+        };
+      default:
+        return {
+          bg: tokens.primary,
+          border: tokens.primary,
+          text: tokens.primaryForeground,
+          borderWidth: 1,
+        };
+    }
   };
 
-  const textMap: Record<ButtonVariant, string> = {
-    primary: tokens.primaryForeground,
-    finance: tokens.primaryForeground,
-    secondary: isHovered ? tokens.doo : tokens.foreground,
-    outline: tokens.foreground,
-    ghost: tokens.foreground,
-  };
+  const buttonColors = getButtonTheme();
 
-  const borderColor =
-    variant === "outline"
-      ? isHovered
-        ? tokens.mutedForeground
-        : tokens.border
-      : variant === "secondary"
-        ? isHovered
-          ? tokens.doo
-          : tokens.border
-        : "transparent";
-
-  const webShadow =
-    variant === "primary"
-      ? isHovered
-        ? isDark
-          ? "0 14px 28px -4px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(255, 255, 255, 0.08)"
-          : "0 16px 32px -6px rgba(15, 23, 42, 0.32), 0 4px 10px rgba(15, 23, 42, 0.12)"
-        : isDark
-          ? "0 8px 20px -4px rgba(0, 0, 0, 0.5)"
-          : "0 10px 24px -6px rgba(15, 23, 42, 0.22), 0 2px 6px rgba(15, 23, 42, 0.08)"
-      : variant === "outline" || variant === "secondary"
-        ? isHovered
-          ? isDark
-            ? "0 8px 20px -4px rgba(0, 0, 0, 0.45)"
-            : "0 8px 20px -4px rgba(15, 23, 42, 0.10)"
-          : "0 2px 6px rgba(15, 23, 42, 0.04)"
-        : "none";
+  const webShadow = isHovered && !isDisabled
+    ? isDark
+      ? "0 10px 24px -4px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(124, 58, 237, 0.18)"
+      : "0 12px 24px -6px rgba(15, 23, 42, 0.16), 0 3px 8px rgba(124, 58, 237, 0.12)"
+    : "none";
 
   return (
     <Animated.View
@@ -147,30 +176,23 @@ export function Button({
         style={(state) => [
           {
             minHeight: heightMap[size],
-            paddingHorizontal: size === "sm" ? 16 : 24,
-            backgroundColor: bgMap[variant],
-            borderColor,
-            borderWidth:
-              variant === "outline" || variant === "secondary" ? 1 : 0,
+            paddingHorizontal: size === "sm" ? 14 : size === "md" ? 18 : 24,
+            backgroundColor: buttonColors.bg,
+            borderColor: buttonColors.border,
+            borderWidth: buttonColors.borderWidth,
             borderRadius: tokens.radiusControl,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
             width: fullWidth ? "100%" : undefined,
-            opacity: isDisabled
-              ? 0.5
-              : state.pressed
-                ? 0.92
-                : variant === "primary" && isHovered
-                  ? 0.96
-                  : 1,
+            opacity: isDisabled ? 0.45 : state.pressed ? 0.9 : 1,
             ...(Platform.OS === "web"
               ? ({
                   boxShadow: webShadow,
                   cursor: isDisabled ? "not-allowed" : "pointer",
                   transition:
-                    "background-color 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 150ms cubic-bezier(0.22, 1, 0.36, 1)",
+                    "background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 160ms cubic-bezier(0.16, 1, 0.3, 1)",
                 } as any)
               : {}),
           },
@@ -179,7 +201,7 @@ export function Button({
         {...props}
       >
         {loading ? (
-          <ActivityIndicator size="small" color={textMap[variant]} />
+          <ActivityIndicator size="small" color={buttonColors.text} />
         ) : (
           <>
             {icon ? (
@@ -187,10 +209,11 @@ export function Button({
             ) : null}
             <Text
               style={{
-                color: textMap[variant],
-                fontSize: size === "sm" ? 13 : 15,
+                color: buttonColors.text,
+                fontSize: size === "sm" ? 13 : 14,
                 fontWeight: "700",
                 letterSpacing: -0.2,
+                fontFamily: "Plus Jakarta Sans",
               }}
             >
               {label}

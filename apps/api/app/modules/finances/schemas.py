@@ -32,6 +32,17 @@ class AccountUpdateRequest(BaseModel):
     color: Optional[str] = Field(default=None, max_length=24)
 
 
+class TransactionUpdateRequest(BaseModel):
+    """Pydantic v2 schema for editing an existing transaction."""
+
+    account_id: Optional[str] = None
+    category_id: Optional[str] = None
+    savings_goal_id: Optional[str] = None
+    type: Optional[Literal["income", "expense", "transfer"]] = None
+    amount: Optional[Decimal] = Field(default=None, gt=Decimal("0.00"))
+    description: Optional[str] = Field(default=None, min_length=1, max_length=240)
+    transaction_date: Optional[date] = None
+
 class TransactionCreateRequest(BaseModel):
     """Pydantic v2 schema for recording a financial transaction."""
 

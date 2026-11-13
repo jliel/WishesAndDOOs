@@ -9,7 +9,7 @@ def utc_now() -> datetime:
 
 
 class Wish(db.Model):
-    """Workspace-scoped Wish item optionally linked to a SavingsGoal and DOOs."""
+    """Workspace-scoped Wish item optionally linked to an Account, a SavingsGoal, and DOOs."""
 
     __tablename__ = "wishes"
 
@@ -29,6 +29,12 @@ class Wish(db.Model):
     savings_goal_id = db.Column(
         db.String(36),
         db.ForeignKey("savings_goals.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    account_id = db.Column(
+        db.String(36),
+        db.ForeignKey("accounts.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )

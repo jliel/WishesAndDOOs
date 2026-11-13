@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import Head from "expo-router/head";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { Button } from "@/components/ui/Button";
@@ -389,6 +390,22 @@ export default function RegisterScreen() {
       style={{ flex: 1, backgroundColor: tokens.background }}
       edges={["top", "bottom"]}
     >
+      <Head>
+        <title>Create an Account — Wishes &amp; DOOs</title>
+        <meta
+          name="description"
+          content="Create your private Wishes &amp; DOOs workspace with starter categories across finances, wishlist goals, and daily tasks."
+        />
+        <link rel="canonical" href="https://wishesanddoos.app/register" />
+        <meta property="og:title" content="Create an Account — Wishes &amp; DOOs" />
+        <meta
+          property="og:description"
+          content="Start your unified space. Connect finances, wishes, and tasks in one calm, multi-tenant workspace."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://wishesanddoos.app/register" />
+        <meta name="twitter:card" content="summary" />
+      </Head>
       <AmbientMeshBackground variant="right-to-left" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -572,6 +589,8 @@ export default function RegisterScreen() {
                   </View>
 
                   <Text
+                    accessibilityRole="header"
+                    aria-level={1}
                     style={{
                       color: tokens.foreground,
                       fontSize: isDesktop ? 40 : isTablet ? 34 : 28,
@@ -993,6 +1012,8 @@ export default function RegisterScreen() {
                     >
                       <View style={{ gap: 4 }}>
                         <Text
+                          accessibilityRole="header"
+                          aria-level={2}
                           style={{
                             color: tokens.foreground,
                             fontSize: 24,

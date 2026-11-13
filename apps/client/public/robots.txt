@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /welcome
+Allow: /login
+Allow: /register
+Disallow: /dashboard
+Disallow: /finances
+Disallow: /wishes
+Disallow: /doos
+Disallow: /settings
+Disallow: /api/
+Sitemap: https://wishesanddoos.app/sitemap.xml

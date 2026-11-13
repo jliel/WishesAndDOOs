@@ -108,6 +108,16 @@ export interface UpdateAccountPayload {
   color?: string;
 }
 
+export interface UpdateTransactionPayload {
+  account_id?: string;
+  category_id?: string | null;
+  savings_goal_id?: string | null;
+  type?: "income" | "expense" | "transfer";
+  amount?: number;
+  description?: string;
+  transaction_date?: string | null;
+}
+
 export interface CreateTransactionPayload {
   workspace_id?: string;
   account_id: string;
@@ -288,6 +298,37 @@ export async function createFinanceTransaction(
       data.message || "Failed to record transaction.",
       response.status,
       data.error || "transaction_create_error"
+    );
+  }
+
+  return data.transaction as FinanceTransaction;
+}
+
+export async function updateFinanceTransaction(
+  accessToken: string,
+  transactionId: string,
+  payload: UpdateTransactionPayload
+): Promise<FinanceTransaction> {
+  const response = await fetch(
+    `${API_BASE_URL}/finances/transactions/${encodeURIComponent(transactionId)}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new ApiAuthError(
+      data.message || "Failed to update transaction.",
+      response.status,
+      data.error || "transaction_update_error"
     );
   }
 

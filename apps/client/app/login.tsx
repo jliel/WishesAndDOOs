@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import Head from "expo-router/head";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { Button } from "@/components/ui/Button";
@@ -273,6 +274,22 @@ export default function LoginScreen() {
       style={{ flex: 1, backgroundColor: tokens.background }}
       edges={["top", "bottom"]}
     >
+      <Head>
+        <title>Sign In — Wishes &amp; DOOs</title>
+        <meta
+          name="description"
+          content="Sign in to your Wishes &amp; DOOs workspace to review your safe-to-spend balance, fund active wishes, and manage your tasks."
+        />
+        <link rel="canonical" href="https://wishesanddoos.app/login" />
+        <meta property="og:title" content="Sign In — Wishes &amp; DOOs" />
+        <meta
+          property="og:description"
+          content="Sign in to review your safe-to-spend balance, fund active wishes, and check off today's DOOs."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://wishesanddoos.app/login" />
+        <meta name="twitter:card" content="summary" />
+      </Head>
       <AmbientMeshBackground variant="corner-top-right" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -456,6 +473,8 @@ export default function LoginScreen() {
                   </View>
 
                   <Text
+                    accessibilityRole="header"
+                    aria-level={1}
                     style={{
                       color: tokens.foreground,
                       fontSize: isDesktop ? 42 : isTablet ? 34 : 28,
@@ -520,6 +539,8 @@ export default function LoginScreen() {
                       </View>
                       <View>
                         <Text
+                          accessibilityRole="header"
+                          aria-level={2}
                           style={{
                             color: tokens.foreground,
                             fontSize: 14,
@@ -774,6 +795,8 @@ export default function LoginScreen() {
                     >
                       <View style={{ gap: 6 }}>
                         <Text
+                          accessibilityRole="header"
+                          aria-level={2}
                           style={{
                             color: tokens.foreground,
                             fontSize: 24,

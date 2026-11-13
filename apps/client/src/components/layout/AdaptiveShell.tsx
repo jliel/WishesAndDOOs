@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Animated,
+  Easing,
   Platform,
   Pressable,
   ScrollView,
@@ -13,10 +14,14 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { ColorMode, THEME_TOKENS, ThemeStyle } from "@/theme/tokens";
 import { useInteractiveMotion } from "@/lib/motion";
+import { TimedNotice } from "@/components/ui/TimedNotice";
+import { useAuthStore } from "@/store/authStore";
+import { logoutAuthSession } from "@/api/auth";
 
-export type AppTabKey = "dashboard" | "finances" | "wishes" | "doos";
+export type AppTabKey = "dashboard" | "finances" | "wishes" | "doos" | "settings";
 
 export interface NavTabItem {
   key: AppTabKey;
@@ -32,28 +37,28 @@ export const APP_NAV_TABS: NavTabItem[] = [
     label: "Dashboard",
     icon: "dashboard",
     accentKey: "finance",
-    screenStepLabel: "Screen 4 Â· Active",
+    screenStepLabel: "Screen 4 · Active",
   },
   {
     key: "finances",
     label: "Finances",
     icon: "account-balance-wallet",
     accentKey: "finance",
-    screenStepLabel: "Screen 5 Â· Next in Plan",
+    screenStepLabel: "Screen 5 · Active",
   },
   {
     key: "wishes",
     label: "Wishes",
     icon: "auto-awesome",
     accentKey: "wish",
-    screenStepLabel: "Screen 6 Â· Upcoming",
+    screenStepLabel: "Screen 6 · Active",
   },
   {
     key: "doos",
     label: "DOOs",
     icon: "checklist",
     accentKey: "doo",
-    screenStepLabel: "Screen 8 Â· Upcoming",
+    screenStepLabel: "Screen 8 · Upcoming",
   },
 ];
 
@@ -79,6 +84,7 @@ function ThemeSwitcherControls({ compact = false }: ThemeSwitcherPanelProps) {
     setThemeStyle,
     setColorMode,
   } = useAppTheme();
+  const { language, setLanguage, t } = useLanguage();
 
   return (
     <View style={{ gap: compact ? 10 : 12 }}>
@@ -170,17 +176,18 @@ function ThemeSwitcherControls({ compact = false }: ThemeSwitcherPanelProps) {
             letterSpacing: 0.6,
           }}
         >
-          Color Mode
+          {t.colorModeTitle}
         </Text>
         <View style={{ flexDirection: "row", gap: 6 }}>
           {COLOR_MODE_OPTIONS.map((opt) => {
             const isSelected = colorMode === opt.mode;
+            const label = opt.mode === "light" ? t.lightMode : t.darkMode;
             return (
               <Pressable
                 key={opt.mode}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`Switch to ${opt.label} mode`}
+                accessibilityLabel={`Switch to ${label} mode`}
                 onPress={() => setColorMode(opt.mode)}
                 style={[
                   {
@@ -216,7 +223,75 @@ function ThemeSwitcherControls({ compact = false }: ThemeSwitcherPanelProps) {
                     fontFamily: "Plus Jakarta Sans",
                   }}
                 >
-                  {opt.label}
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Language Switcher (English | Español) */}
+      <View style={{ gap: 6 }}>
+        <Text
+          style={{
+            color: tokens.mutedForeground,
+            fontSize: 10,
+            fontWeight: "700",
+            textTransform: "uppercase",
+            letterSpacing: 0.6,
+          }}
+        >
+          {t.languageTitle}
+        </Text>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {[
+            { code: "en" as const, label: "English" },
+            { code: "es" as const, label: "Español" },
+          ].map((lang) => {
+            const isSelected = language === lang.code;
+            return (
+              <Pressable
+                key={lang.code}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`Switch to ${lang.label}`}
+                onPress={() => setLanguage(lang.code)}
+                style={[
+                  {
+                    flex: 1,
+                    minHeight: 40,
+                    paddingHorizontal: 10,
+                    borderRadius: tokens.radiusControl,
+                    backgroundColor: isSelected ? tokens.primary : tokens.muted,
+                    borderWidth: 1,
+                    borderColor: isSelected ? tokens.primary : tokens.border,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                  },
+                  Platform.OS === "web" ? ({ cursor: "pointer" } as any) : null,
+                ]}
+              >
+                <MaterialIcons
+                  name="translate"
+                  size={15}
+                  color={
+                    isSelected ? tokens.primaryForeground : tokens.foreground
+                  }
+                />
+                <Text
+                  style={{
+                    color: isSelected
+                      ? tokens.primaryForeground
+                      : tokens.foreground,
+                    fontSize: 12,
+                    fontWeight: isSelected ? "800" : "700",
+                    fontFamily: "Plus Jakarta Sans",
+                  }}
+                >
+                  {lang.label}
                 </Text>
               </Pressable>
             );
@@ -236,6 +311,19 @@ interface NavTabButtonProps {
 
 function NavTabButton({ item, isActive, variant, onSelect }: NavTabButtonProps) {
   const { tokens } = useAppTheme();
+  const { t } = useLanguage();
+  const displayLabel =
+    item.key === "dashboard"
+      ? t.dashboard
+      : item.key === "finances"
+      ? t.finances
+      : item.key === "wishes"
+      ? t.wishes
+      : item.key === "doos"
+      ? t.doos
+      : item.key === "settings"
+      ? t.settings
+      : item.label;
   const motion = useInteractiveMotion({
     hoverScale: 1.015,
     hoverLift: -1.5,
@@ -268,8 +356,8 @@ function NavTabButton({ item, isActive, variant, onSelect }: NavTabButtonProps) 
           accessibilityState={{ selected: isActive }}
           accessibilityLabel={
             variant === "drawer"
-              ? `Drawer Navigate to ${item.label}`
-              : `Navigate to ${item.label}`
+              ? `Drawer Navigate to ${displayLabel}`
+              : `Navigate to ${displayLabel}`
           }
           onPress={() => onSelect(item)}
           onHoverIn={motion.onHoverIn}
@@ -316,7 +404,7 @@ function NavTabButton({ item, isActive, variant, onSelect }: NavTabButtonProps) 
                   fontFamily: "Plus Jakarta Sans",
                 }}
               >
-                {item.label}
+                {displayLabel}
               </Text>
               {variant === "drawer" ? (
                 <Text
@@ -357,7 +445,7 @@ function NavTabButton({ item, isActive, variant, onSelect }: NavTabButtonProps) 
       <Pressable
         accessibilityRole="tab"
         accessibilityState={{ selected: isActive }}
-        accessibilityLabel={`Navigate to ${item.label}`}
+        accessibilityLabel={`Navigate to ${displayLabel}`}
         onPress={() => onSelect(item)}
         onHoverIn={motion.onHoverIn}
         onHoverOut={motion.onHoverOut}
@@ -393,7 +481,7 @@ function NavTabButton({ item, isActive, variant, onSelect }: NavTabButtonProps) 
             fontFamily: "Plus Jakarta Sans",
           }}
         >
-          {item.label}
+          {displayLabel}
         </Text>
       </Pressable>
     </Animated.View>
@@ -420,14 +508,60 @@ export function AdaptiveShell({
   children,
 }: AdaptiveShellProps) {
   const { tokens, colorMode } = useAppTheme();
+  const { t } = useLanguage();
   const isDark = colorMode === "dark";
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
 
+  const clearSession = useAuthStore((s) => s.clearSession);
+  const refreshToken = useAuthStore((s) => s.refreshToken);
+
+  const handleExecuteSignOut = async () => {
+    if (onSignOut) {
+      onSignOut();
+      return;
+    }
+    try {
+      if (refreshToken) {
+        await logoutAuthSession(refreshToken);
+      }
+    } catch {}
+    clearSession();
+    router.replace("/welcome");
+  };
+
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const [showProfileSheet, setShowProfileSheet] = useState(false);
   const [showMobileDrawer, setShowMobileDrawer] = useState(false);
+
+  // Smooth Slide-over animation from left to right (Emil Kowalski outExpo curve)
+  const drawerSlideAnim = React.useRef(new Animated.Value(0)).current;
+  const drawerWidth = Math.min(320, width * 0.84);
+
+  const openMobileDrawer = () => {
+    setShowMobileDrawer(true);
+    Animated.timing(drawerSlideAnim, {
+      toValue: 1,
+      duration: 320,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
+  };
+
+  const closeMobileDrawer = (callback?: () => void) => {
+    Animated.timing(drawerSlideAnim, {
+      toValue: 0,
+      duration: 220,
+      easing: Easing.bezier(0.55, 0.085, 0.68, 0.53),
+      useNativeDriver: Platform.OS !== "web",
+    }).start(({ finished }) => {
+      if (finished) {
+        setShowMobileDrawer(false);
+        if (callback) callback();
+      }
+    });
+  };
 
   const avatarMotion = useInteractiveMotion({
     hoverScale: 1.04,
@@ -447,6 +581,12 @@ export function AdaptiveShell({
     pressScale: 0.96,
   });
 
+  const userCardMotion = useInteractiveMotion({
+    hoverScale: 1.015,
+    hoverLift: -1,
+    pressScale: 0.98,
+  });
+
   const initials =
     userDisplayName
       .split(" ")
@@ -455,20 +595,46 @@ export function AdaptiveShell({
       .map((part) => part[0]?.toUpperCase() || "")
       .join("") || "WD";
 
+  const router = useRouter();
+
   const handleSelectTab = (tab: NavTabItem) => {
-    setShowMobileDrawer(false);
+    closeMobileDrawer();
     if (tab.key === activeTab) {
       setPreviewNotice(null);
       return;
     }
+    if (tab.key === "dashboard") {
+      setPreviewNotice(null);
+      router.push("/dashboard");
+      return;
+    }
+    if (tab.key === "finances") {
+      setPreviewNotice(null);
+      router.push("/finances");
+      return;
+    }
+    if (tab.key === "wishes") {
+      setPreviewNotice(null);
+      router.push("/wishes");
+      return;
+    }
+    if (tab.key === "doos") {
+      setPreviewNotice(null);
+      router.push("/doos");
+      return;
+    }
     setPreviewNotice(
-      `${tab.label} (${tab.screenStepLabel}) will be constructed in its dedicated screen slice once you approve Screen 4.`
+      `${tab.label} will be constructed in the upcoming step.`
     );
   };
 
   const handleToggleAvatar = () => {
     if (!isDesktop) {
-      setShowMobileDrawer((prev) => !prev);
+      if (showMobileDrawer) {
+        closeMobileDrawer();
+      } else {
+        openMobileDrawer();
+      }
       setShowProfileSheet(false);
       return;
     }
@@ -612,7 +778,7 @@ export function AdaptiveShell({
                     marginBottom: 4,
                   }}
                 >
-                  Workspace Modules
+                  {t.workspaceModules}
                 </Text>
                 {APP_NAV_TABS.map((tab) => (
                   <NavTabButton
@@ -623,21 +789,60 @@ export function AdaptiveShell({
                     onSelect={handleSelectTab}
                   />
                 ))}
+
+                {/* Settings Tab Button Indicator in Sidebar */}
+                <NavTabButton
+                  item={{
+                    key: "settings",
+                    label: t.settings,
+                    icon: "settings",
+                    accentKey: "primary",
+                    screenStepLabel: "Screen 10 · Active",
+                  }}
+                  isActive={activeTab === "settings"}
+                  variant="sidebar"
+                  onSelect={() => {
+                    setShowMobileDrawer(false);
+                    router.push("/settings");
+                  }}
+                />
               </View>
             </View>
 
-            {/* Desktop Footer User Card */}
+            {/* Desktop Footer User Card (Clickable to open Settings) */}
             <View
               style={{
                 padding: 12,
                 borderRadius: tokens.radiusCard,
                 backgroundColor: `${tokens.muted}${isDark ? "AA" : "CC"}`,
                 borderWidth: 1,
-                borderColor: navBorderSubtle,
+                borderColor: activeTab === "settings" ? tokens.primary : navBorderSubtle,
                 gap: 10,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Animated.View style={userCardMotion.animatedStyle}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Navigate to Profile & Settings"
+                  onPress={() => router.push("/settings")}
+                  onHoverIn={userCardMotion.onHoverIn}
+                  onHoverOut={userCardMotion.onHoverOut}
+                  onPressIn={userCardMotion.onPressIn}
+                  onPressOut={userCardMotion.onPressOut}
+                  style={[
+                    {
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: 6,
+                      borderRadius: tokens.radiusControl,
+                      backgroundColor: userCardMotion.isHovered
+                        ? (isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.04)")
+                        : "transparent",
+                    },
+                    Platform.OS === "web" ? ({ cursor: "pointer" } as any) : null,
+                  ]}
+                >
                 <View
                   style={{
                     width: 34,
@@ -681,14 +886,19 @@ export function AdaptiveShell({
                     </Text>
                   ) : null}
                 </View>
-              </View>
+                  <MaterialIcons
+                    name="settings"
+                    size={16}
+                    color={activeTab === "settings" ? tokens.primary : tokens.mutedForeground}
+                  />
+                </Pressable>
+              </Animated.View>
 
-              {onSignOut ? (
-                <Animated.View style={signOutMotion.animatedStyle}>
+              <Animated.View style={signOutMotion.animatedStyle}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Sign Out"
-                    onPress={onSignOut}
+                    onPress={handleExecuteSignOut}
                     onHoverIn={signOutMotion.onHoverIn}
                     onHoverOut={signOutMotion.onHoverOut}
                     onPressIn={signOutMotion.onPressIn}
@@ -722,11 +932,10 @@ export function AdaptiveShell({
                         fontWeight: "600",
                       }}
                     >
-                      Sign Out
+                      {t.signOut}
                     </Text>
                   </Pressable>
                 </Animated.View>
-              ) : null}
             </View>
           </View>
         ) : null}
@@ -758,7 +967,7 @@ export function AdaptiveShell({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Open navigation menu"
-                    onPress={() => setShowMobileDrawer(true)}
+                    onPress={openMobileDrawer}
                     onHoverIn={menuButtonMotion.onHoverIn}
                     onHoverOut={menuButtonMotion.onHoverOut}
                     onPressIn={menuButtonMotion.onPressIn}
@@ -815,7 +1024,7 @@ export function AdaptiveShell({
                       fontWeight: "600",
                     }}
                   >
-                    Welcome back, {userDisplayName}
+                    {t.welcomeBack}, {userDisplayName}
                   </Text>
                 </View>
               ) : (
@@ -837,7 +1046,7 @@ export function AdaptiveShell({
                       fontSize: 11,
                     }}
                   >
-                    Welcome back, {userDisplayName}
+                    {t.welcomeBack}, {userDisplayName}
                   </Text>
                 </View>
               )}
@@ -873,80 +1082,97 @@ export function AdaptiveShell({
                 </Text>
               </View>
 
-              <Animated.View style={avatarMotion.animatedStyle}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open Profile and Settings"
-                  onPress={handleToggleAvatar}
-                  onHoverIn={avatarMotion.onHoverIn}
-                  onHoverOut={avatarMotion.onHoverOut}
-                  onPressIn={avatarMotion.onPressIn}
-                  onPressOut={avatarMotion.onPressOut}
-                  style={[
-                    {
-                      minWidth: isDesktop ? 36 : 44,
-                      minHeight: isDesktop ? 30 : 44,
-                      paddingHorizontal: isDesktop ? 9 : 10,
-                      borderRadius: 999,
-                      backgroundColor:
-                        showProfileSheet || showMobileDrawer
-                          ? tokens.primary
-                          : `${tokens.muted}${isDark ? "AA" : "CC"}`,
-                      borderWidth: 1,
-                      borderColor:
-                        showProfileSheet || showMobileDrawer
-                          ? tokens.primary
-                          : navBorderSubtle,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 5,
-                    },
-                    Platform.OS === "web" ? ({ cursor: "pointer" } as any) : null,
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color:
-                        showProfileSheet || showMobileDrawer
-                          ? tokens.primaryForeground
-                          : tokens.foreground,
-                      fontSize: isDesktop ? 11 : 12,
-                      fontWeight: "800",
-                    }}
+              {/* User Avatar + Settings Trigger: Only rendered on Desktop PC (Mobile uses Hamburger Menu) */}
+              {isDesktop ? (
+                <Animated.View style={avatarMotion.animatedStyle}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Open Profile and Settings"
+                    onPress={handleToggleAvatar}
+                    onHoverIn={avatarMotion.onHoverIn}
+                    onHoverOut={avatarMotion.onHoverOut}
+                    onPressIn={avatarMotion.onPressIn}
+                    onPressOut={avatarMotion.onPressOut}
+                    style={[
+                      {
+                        minWidth: 36,
+                        minHeight: 30,
+                        paddingHorizontal: 9,
+                        borderRadius: 999,
+                        backgroundColor:
+                          showProfileSheet || activeTab === "settings"
+                            ? tokens.primary
+                            : `${tokens.muted}${isDark ? "AA" : "CC"}`,
+                        borderWidth: 1,
+                        borderColor:
+                          showProfileSheet || activeTab === "settings"
+                            ? tokens.primary
+                            : navBorderSubtle,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 5,
+                      },
+                      Platform.OS === "web" ? ({ cursor: "pointer" } as any) : null,
+                    ]}
                   >
-                    {initials}
-                  </Text>
-                  <MaterialIcons
-                    name="settings"
-                    size={isDesktop ? 14 : 15}
-                    color={
-                      showProfileSheet || showMobileDrawer
-                        ? tokens.primaryForeground
-                        : tokens.mutedForeground
-                    }
-                  />
-                </Pressable>
-              </Animated.View>
+                    <Text
+                      style={{
+                        color:
+                          showProfileSheet || activeTab === "settings"
+                            ? tokens.primaryForeground
+                            : tokens.foreground,
+                        fontSize: 11,
+                        fontWeight: "800",
+                      }}
+                    >
+                      {initials}
+                    </Text>
+                    <MaterialIcons
+                      name="settings"
+                      size={14}
+                      color={
+                        showProfileSheet || activeTab === "settings"
+                          ? tokens.primaryForeground
+                          : tokens.mutedForeground
+                      }
+                    />
+                  </Pressable>
+                </Animated.View>
+              ) : null}
             </View>
           </View>
 
           {/* Desktop Floating Settings Mini-Panel Popover (Anchored right beneath Settings button, zero layout shift) */}
           {isDesktop && showProfileSheet ? (
-            <>
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  position: Platform.OS === "web" ? ("fixed" as any) : "absolute",
+                  zIndex: 100,
+                },
+              ]}
+              pointerEvents="box-none"
+            >
               <Pressable
                 accessibilityLabel="Close Settings Popover Backdrop"
                 onPress={() => setShowProfileSheet(false)}
-                style={StyleSheet.absoluteFill}
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: "transparent",
+                  },
+                ]}
               />
               <View
                 style={[
                   {
                     position: "absolute",
-                    top: 44,
+                    top: 48,
                     right: 28,
                     width: 336,
-                    zIndex: 60,
+                    zIndex: 101,
                     padding: 16,
                     borderRadius: tokens.radiusCard,
                     backgroundColor: tokens.card,
@@ -1066,20 +1292,44 @@ export function AdaptiveShell({
                     gap: 8,
                   }}
                 >
-                  <Text
-                    style={{
-                      color: tokens.mutedForeground,
-                      fontSize: 11,
-                      flex: 1,
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Open Full Settings Screen"
+                    onPress={() => {
+                      setShowProfileSheet(false);
+                      setShowMobileDrawer(false);
+                      router.push("/settings");
                     }}
+                    style={({ hovered }: any) => [
+                      {
+                        flex: 1,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 4,
+                        paddingVertical: 6,
+                        paddingHorizontal: 8,
+                        borderRadius: tokens.radiusControl,
+                        backgroundColor: hovered ? tokens.muted : "transparent",
+                      },
+                      Platform.OS === "web" ? ({ cursor: "pointer", transition: "all 160ms ease" } as any) : null,
+                    ]}
                   >
-                    Full security & sessions in Screen 10 (/settings)
-                  </Text>
-                  {onSignOut ? (
-                    <Pressable
+                    <Text
+                      style={{
+                        color: tokens.foreground,
+                        fontSize: 12,
+                        fontWeight: "700",
+                        fontFamily: "Plus Jakarta Sans",
+                      }}
+                    >
+                      All Settings & Security
+                    </Text>
+                    <MaterialIcons name="arrow-forward" size={13} color={tokens.mutedForeground} />
+                  </Pressable>
+                  <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Sign Out from Header"
-                      onPress={onSignOut}
+                      onPress={handleExecuteSignOut}
                       style={[
                         {
                           minHeight: 34,
@@ -1106,51 +1356,20 @@ export function AdaptiveShell({
                         Sign Out
                       </Text>
                     </Pressable>
-                  ) : null}
                 </View>
               </View>
-            </>
+            </View>
           ) : null}
 
-          {/* Tab Navigation Notice Banner (when tapping upcoming tabs 5, 6, 8) */}
+          {/* Tab Navigation Notice with Automatic Progress Countdown */}
           {previewNotice ? (
-            <View
-              style={{
-                marginHorizontal: isDesktop ? 32 : isTablet ? 24 : 16,
-                marginTop: 12,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                borderRadius: tokens.radiusControl,
-                backgroundColor: tokens.financeSoft,
-                borderWidth: 1,
-                borderColor: tokens.finance,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 10,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                <MaterialIcons name="info-outline" size={17} color={tokens.finance} />
-                <Text
-                  style={{
-                    color: tokens.foreground,
-                    fontSize: 12,
-                    fontWeight: "600",
-                    flex: 1,
-                  }}
-                >
-                  {previewNotice}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Dismiss navigation notice"
-                onPress={() => setPreviewNotice(null)}
-                style={{ padding: 4 }}
-              >
-                <MaterialIcons name="close" size={16} color={tokens.mutedForeground} />
-              </Pressable>
+            <View style={{ marginHorizontal: isDesktop ? 32 : isTablet ? 24 : 16, marginTop: 12 }}>
+              <TimedNotice
+                message={previewNotice}
+                onDismiss={() => setPreviewNotice(null)}
+                durationMs={4500}
+                variant="info"
+              />
             </View>
           ) : null}
 
@@ -1200,7 +1419,7 @@ export function AdaptiveShell({
             </View>
           ) : null}
 
-          {/* Mobile & Tablet Overlapping Hamburger Drawer / Panel */}
+          {/* Mobile & Tablet Overlapping Hamburger Drawer / Panel (Smooth Left-to-Right Slide) */}
           {!isDesktop && showMobileDrawer ? (
             <View
               style={[
@@ -1211,11 +1430,11 @@ export function AdaptiveShell({
                 },
               ]}
             >
-              {/* Overlapping Slide-Over Drawer Sheet */}
-              <View
+              {/* Overlapping Slide-Over Drawer Sheet with fluid transform */}
+              <Animated.View
                 style={[
                   {
-                    width: Math.min(320, width * 0.84),
+                    width: drawerWidth,
                     height: "100%",
                     backgroundColor: tokens.card,
                     borderRightWidth: 1,
@@ -1223,6 +1442,15 @@ export function AdaptiveShell({
                     paddingHorizontal: 18,
                     paddingVertical: 18,
                     justifyContent: "space-between",
+                    zIndex: 82,
+                    transform: [
+                      {
+                        translateX: drawerSlideAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-drawerWidth, 0],
+                        }),
+                      },
+                    ],
                   },
                   Platform.OS === "web"
                     ? ({
@@ -1293,7 +1521,7 @@ export function AdaptiveShell({
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Close navigation menu"
-                      onPress={() => setShowMobileDrawer(false)}
+                      onPress={() => closeMobileDrawer()}
                       style={[
                         {
                           width: 40,
@@ -1322,7 +1550,7 @@ export function AdaptiveShell({
                         paddingHorizontal: 4,
                       }}
                     >
-                      Switch Module
+                      {t.switchModule}
                     </Text>
                     {APP_NAV_TABS.map((tab) => (
                       <NavTabButton
@@ -1333,6 +1561,22 @@ export function AdaptiveShell({
                         onSelect={handleSelectTab}
                       />
                     ))}
+
+                    {/* Settings Tab Button Indicator in Mobile Drawer */}
+                    <NavTabButton
+                      item={{
+                        key: "settings",
+                        label: t.settings,
+                        icon: "settings",
+                        accentKey: "primary",
+                        screenStepLabel: "Screen 10 · Active",
+                      }}
+                      isActive={activeTab === "settings"}
+                      variant="drawer"
+                      onSelect={() => {
+                        closeMobileDrawer(() => router.push("/settings"));
+                      }}
+                    />
                   </View>
 
                   {/* 2-Axis Theme Switcher Inside Mobile Hamburger Drawer */}
@@ -1370,7 +1614,23 @@ export function AdaptiveShell({
                     gap: 10,
                   }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Navigate to Profile & Settings"
+                    onPress={() => {
+                      closeMobileDrawer(() => router.push("/settings"));
+                    }}
+                    style={[
+                      {
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: 6,
+                        borderRadius: tokens.radiusControl,
+                      },
+                      Platform.OS === "web" ? ({ cursor: "pointer" } as any) : null,
+                    ]}
+                  >
                     <View
                       style={{
                         width: 36,
@@ -1414,13 +1674,17 @@ export function AdaptiveShell({
                         </Text>
                       ) : null}
                     </View>
-                  </View>
+                    <MaterialIcons
+                      name="settings"
+                      size={18}
+                      color={activeTab === "settings" ? tokens.primary : tokens.mutedForeground}
+                    />
+                  </Pressable>
 
-                  {onSignOut ? (
-                    <Pressable
+                  <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Sign Out from Drawer"
-                      onPress={onSignOut}
+                      onPress={handleExecuteSignOut}
                       style={[
                         {
                           minHeight: 44,
@@ -1444,23 +1708,27 @@ export function AdaptiveShell({
                           fontWeight: "700",
                         }}
                       >
-                        Sign Out
+                        {t.signOut}
                       </Text>
                     </Pressable>
-                  ) : null}
                 </View>
-              </View>
+              </Animated.View>
 
-              {/* Dimmed Scrim Backdrop (Tap outside to dismiss) */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Dismiss navigation drawer backdrop"
-                onPress={() => setShowMobileDrawer(false)}
+              {/* Dimmed Scrim Backdrop (Tap outside to dismiss with smooth fade) */}
+              <Animated.View
                 style={{
                   flex: 1,
+                  opacity: drawerSlideAnim,
                   backgroundColor: "rgba(9, 13, 22, 0.48)",
                 }}
-              />
+              >
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss navigation drawer backdrop"
+                  onPress={() => closeMobileDrawer()}
+                  style={StyleSheet.absoluteFill}
+                />
+              </Animated.View>
             </View>
           ) : null}
         </View>

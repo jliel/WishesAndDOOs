@@ -16,15 +16,20 @@ import { useAppTheme } from "@/theme/ThemeProvider";
 import { AmbientMeshBackground } from "@/components/ui/AmbientMeshBackground";
 import { AdaptiveShell } from "@/components/layout/AdaptiveShell";
 import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import { Card } from "@/components/ui/Card";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { useAuthStore } from "@/store/authStore";
 import {
   createFinanceAccount,
+  updateFinanceAccount,
   createFinanceSavingsGoal,
+  updateFinanceSavingsGoal,
   createFinanceTransaction,
   deleteFinanceAccount,
   deleteFinanceSavingsGoal,
   deleteFinanceTransaction,
+  updateFinanceTransaction,
   fetchFinancesOverview,
   FinanceAccount,
   FinanceBudget,
@@ -37,10 +42,15 @@ import {
 } from "@/api/finances";
 import {
   useErrorShake,
+  useInteractiveMotion,
   usePulseScale,
   useStaggerEntrance,
 } from "@/lib/motion";
-import { loginWithEmail } from "@/api/auth";
+import { TimedNotice } from "@/components/ui/TimedNotice";
+import { ConfirmDeleteModal } from "@/components/ui/ConfirmDeleteModal";
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { loginWithEmail, logoutAuthSession } from "@/api/auth";
+import { useRouter } from "expo-router";
 
 export function formatCurrency(amount: number, currency = "USD"): string {
   const symbolMap: Record<string, string> = {
@@ -65,28 +75,168 @@ export type FinanceTabKey = "transactions" | "budgets" | "savings" | "accounts";
 
 interface TabItemConfig {
   key: FinanceTabKey;
-  label: string;
+  labelKey: "transactionsTab" | "budgetsTab" | "savingsTab" | "accountsTab";
   icon: React.ComponentProps<typeof MaterialIcons>["name"];
 }
 
 const FINANCE_TABS: TabItemConfig[] = [
-  { key: "transactions", label: "Transactions", icon: "receipt-long" },
-  { key: "budgets", label: "Budgets", icon: "pie-chart-outline" },
-  { key: "savings", label: "Savings Goals", icon: "savings" },
-  { key: "accounts", label: "Accounts", icon: "account-balance-wallet" },
+  { key: "transactions", labelKey: "transactionsTab", icon: "receipt-long" },
+  { key: "budgets", labelKey: "budgetsTab", icon: "pie-chart-outline" },
+  { key: "savings", labelKey: "savingsTab", icon: "savings" },
+  { key: "accounts", labelKey: "accountsTab", icon: "account-balance-wallet" },
 ];
+
+interface FinanceTabPillProps {
+  tab: TabItemConfig;
+  isSelected: boolean;
+  onSelect: () => void;
+  isDesktop: boolean;
+  label: string;
+}
+
+function FinanceTabPill({ tab, isSelected, onSelect, isDesktop, label }: FinanceTabPillProps) {
+  const { tokens, colorMode } = useAppTheme();
+  const isDark = colorMode === "dark";
+  const motion = useInteractiveMotion({
+    hoverScale: 1.025,
+    hoverLift: -2,
+    pressScale: 0.96,
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          flex: isDesktop ? 1 : undefined,
+          flexShrink: 0,
+        },
+        motion.animatedStyle,
+      ]}
+    >
+      <Pressable
+        accessibilityRole="tab"
+        accessibilityState={{ selected: isSelected }}
+        accessibilityLabel={`Switch to ${label} tab`}
+        onPress={onSelect}
+        onHoverIn={motion.onHoverIn}
+        onHoverOut={motion.onHoverOut}
+        onPressIn={motion.onPressIn}
+        onPressOut={motion.onPressOut}
+        style={[
+          {
+            minHeight: 44,
+            paddingHorizontal: isDesktop ? 16 : 14,
+            paddingVertical: 8,
+            borderRadius: tokens.radiusControl,
+            backgroundColor: isSelected
+              ? tokens.financeSoft
+              : motion.isHovered
+              ? `${tokens.financeSoft}60`
+              : "transparent",
+            borderWidth: 1,
+            borderColor: isSelected
+              ? tokens.finance
+              : motion.isHovered
+              ? `${tokens.finance}88`
+              : "transparent",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+          },
+          Platform.OS === "web"
+            ? ({
+                cursor: "pointer",
+                transition: "background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1)",
+                boxShadow:
+                  motion.isHovered && !isSelected
+                    ? isDark
+                      ? "0 6px 16px -2px rgba(16, 185, 129, 0.25)"
+                      : "0 6px 16px -2px rgba(16, 185, 129, 0.16)"
+                    : isSelected
+                    ? isDark
+                      ? "0 4px 12px -2px rgba(16, 185, 129, 0.2)"
+                      : "0 4px 12px -2px rgba(16, 185, 129, 0.12)"
+                    : "none",
+              } as any)
+            : null,
+        ]}
+      >
+        <Animated.View style={motion.leftIconStyle}>
+          <MaterialIcons
+            name={tab.icon}
+            size={18}
+            color={
+              isSelected
+                ? tokens.finance
+                : motion.isHovered
+                ? tokens.finance
+                : tokens.mutedForeground
+            }
+          />
+        </Animated.View>
+        <Text
+          numberOfLines={1}
+          style={[
+            {
+              color: isSelected
+                ? tokens.finance
+                : motion.isHovered
+                ? tokens.foreground
+                : tokens.mutedForeground,
+              fontSize: isDesktop ? 13 : 12,
+              fontWeight: isSelected ? "800" : motion.isHovered ? "700" : "600",
+              fontFamily: "Plus Jakarta Sans",
+            },
+            Platform.OS === "web" ? ({ whiteSpace: "nowrap" } as any) : null,
+          ]}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 export default function FinancesScreen() {
   const { tokens, colorMode } = useAppTheme();
+  const { t } = useLanguage();
   const isDark = colorMode === "dark";
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
 
+  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
+  const refreshToken = useAuthStore((s) => s.refreshToken);
   const currentWorkspace = useAuthStore((s) => s.currentWorkspace);
   const setSession = useAuthStore((s) => s.setSession);
+  const clearSession = useAuthStore((s) => s.clearSession);
+
+  const [pendingUndo, setPendingUndo] = useState<{
+    label: string;
+    onUndo: () => Promise<void>;
+  } | null>(null);
+
+  // Delete confirmation modals
+  const [deleteTargetTx, setDeleteTargetTx] = useState<FinanceTransaction | null>(null);
+  const [deleteTargetGoal, setDeleteTargetGoal] = useState<FinanceSavingsGoal | null>(null);
+  const [deleteTargetAccount, setDeleteTargetAccount] = useState<FinanceAccount | null>(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
+
+  const handleSignOut = async () => {
+    try {
+      if (refreshToken) {
+        await logoutAuthSession(refreshToken);
+      }
+    } catch {
+      // Ignore network errors on sign out
+    }
+    clearSession();
+    setData(null);
+    router.replace("/welcome");
+  };
 
   const [activeTab, setActiveTab] = useState<FinanceTabKey>("transactions");
   const [data, setData] = useState<FinancesOverviewResponse | null>(null);
@@ -105,10 +255,16 @@ export default function FinancesScreen() {
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [selectedGoalForFunding, setSelectedGoalForFunding] = useState<FinanceSavingsGoal | null>(null);
 
+  // Active items being edited
+  const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
+  const [editingAccount, setEditingAccount] = useState<FinanceAccount | null>(null);
+  const [editingGoal, setEditingGoal] = useState<FinanceSavingsGoal | null>(null);
+
   // Form states
   const [txType, setTxType] = useState<"expense" | "income" | "transfer">("expense");
   const [txAmount, setTxAmount] = useState("");
   const [txDescription, setTxDescription] = useState("");
+  const [txDate, setTxDate] = useState("");
   const [txAccountId, setTxAccountId] = useState("");
   const [txCategoryId, setTxCategoryId] = useState("");
   const [txGoalId, setTxGoalId] = useState("");
@@ -185,6 +341,80 @@ export default function FinancesScreen() {
     }
   }, [data, txAccountId, txCategoryId, fundAccountId, budgetCatId]);
 
+    // Open Handlers for Creation vs Editing
+  const handleOpenAddTransaction = () => {
+    setEditingTransaction(null);
+    setTxType("expense");
+    setTxAmount("");
+    setTxDescription("");
+    setTxDate("");
+    setTxGoalId("");
+    if (data?.accounts?.length) setTxAccountId(data.accounts[0].id);
+    if (data?.categories?.length) setTxCategoryId(data.categories[0].id);
+    setModalError(null);
+    setShowTransactionModal(true);
+  };
+
+  const handleOpenEditTransaction = (tx: FinanceTransaction) => {
+    setEditingTransaction(tx);
+    setTxType(tx.type);
+    setTxAmount(String(tx.amount));
+    setTxDescription(tx.description);
+    setTxDate(tx.transaction_date || "");
+    setTxAccountId(tx.account_id);
+    setTxCategoryId(tx.category_id || "");
+    setTxGoalId(tx.savings_goal_id || "");
+    setModalError(null);
+    setShowTransactionModal(true);
+  };
+
+  const handleOpenAddAccount = () => {
+    setEditingAccount(null);
+    setAccName("");
+    setAccType("checking");
+    setAccBalance("0");
+    setModalError(null);
+    setShowAccountModal(true);
+  };
+
+  const handleOpenEditAccount = (acc: FinanceAccount) => {
+    setEditingAccount(acc);
+    setAccName(acc.name);
+    setAccType(acc.type as any);
+    setAccBalance(String(acc.balance));
+    setModalError(null);
+    setShowAccountModal(true);
+  };
+
+  const handleOpenAddGoal = () => {
+    setEditingGoal(null);
+    setGoalName("");
+    setGoalTarget("");
+    setGoalCurrent("0");
+    setGoalTargetDate("");
+    setGoalAccountId(data?.accounts?.[0]?.id || "");
+    setModalError(null);
+    setShowGoalModal(true);
+  };
+
+  const handleOpenEditGoal = (goal: FinanceSavingsGoal) => {
+    setEditingGoal(goal);
+    setGoalName(goal.name);
+    setGoalTarget(String(goal.target_amount));
+    setGoalCurrent(String(goal.current_amount));
+    setGoalTargetDate(goal.target_date || "");
+    setGoalAccountId(goal.account_id || "");
+    setModalError(null);
+    setShowGoalModal(true);
+  };
+
+  const handleOpenEditBudget = (catId: string, currentLimit: number) => {
+    setBudgetCatId(catId);
+    setBudgetLimit(String(currentLimit));
+    setModalError(null);
+    setShowBudgetModal(true);
+  };
+
   // Handle Log Transaction Mutation
   const handleConfirmTransaction = async () => {
     if (!accessToken) return;
@@ -208,23 +438,74 @@ export default function FinancesScreen() {
     try {
       setIsSubmitting(true);
       setModalError(null);
-      await createFinanceTransaction(accessToken, {
-        workspace_id: currentWorkspace?.id,
-        account_id: txAccountId,
-        category_id: txCategoryId || null,
-        savings_goal_id: txGoalId || null,
-        type: txType,
-        amount: parsedAmount,
-        description: txDescription.trim(),
-      });
-      setShowTransactionModal(false);
+
+      if (editingTransaction) {
+        const prevTx = { ...editingTransaction };
+        const updated = await updateFinanceTransaction(accessToken, editingTransaction.id, {
+          account_id: txAccountId,
+          category_id: txCategoryId || null,
+          savings_goal_id: txGoalId || null,
+          type: txType,
+          amount: parsedAmount,
+          description: txDescription.trim(),
+          transaction_date: txDate.trim() || null,
+        });
+        setShowTransactionModal(false);
+        setEditingTransaction(null);
+        setFeedbackNotice(`Updated transaction: ${updated.description}`);
+
+        setPendingUndo({
+          label: "Undo",
+          onUndo: async () => {
+            try {
+              await updateFinanceTransaction(accessToken, prevTx.id, {
+                account_id: prevTx.account_id,
+                category_id: prevTx.category_id,
+                savings_goal_id: prevTx.savings_goal_id,
+                type: prevTx.type,
+                amount: prevTx.amount,
+                description: prevTx.description,
+              });
+              await loadFinances(accessToken, currentWorkspace?.id);
+              setFeedbackNotice(`Reverted transaction "${prevTx.description}".`);
+            } catch (err: any) {
+              setFeedbackNotice(err.message || "Failed to revert transaction.");
+            }
+          },
+        });
+      } else {
+        const createdTx = await createFinanceTransaction(accessToken, {
+          workspace_id: currentWorkspace?.id,
+          account_id: txAccountId,
+          category_id: txCategoryId || null,
+          savings_goal_id: txGoalId || null,
+          type: txType,
+          amount: parsedAmount,
+          description: txDescription.trim(),
+          transaction_date: txDate.trim() || undefined,
+        });
+        setShowTransactionModal(false);
+        setFeedbackNotice(`Transaction confirmed: ${formatCurrency(parsedAmount, currentWorkspace?.currency || "USD")}`);
+        setPendingUndo({
+          label: "Undo",
+          onUndo: async () => {
+            try {
+              await deleteFinanceTransaction(accessToken, createdTx.id);
+              await loadFinances(accessToken, currentWorkspace?.id);
+              setFeedbackNotice("Transaction undone and removed.");
+            } catch (err: any) {
+              setFeedbackNotice(err.message || "Failed to undo transaction.");
+            }
+          },
+        });
+      }
+
       setTxAmount("");
       setTxDescription("");
       setTxGoalId("");
-      setFeedbackNotice(`Transaction confirmed: ${formatCurrency(parsedAmount, currentWorkspace?.currency || "USD")}`);
       await loadFinances(accessToken, currentWorkspace?.id);
     } catch (err: any) {
-      setModalError(err.message || "Failed to confirm transaction.");
+      setModalError(err.message || (editingTransaction ? "Failed to update transaction." : "Failed to confirm transaction."));
       errorShake.triggerShake();
     } finally {
       setIsSubmitting(false);
@@ -234,9 +515,32 @@ export default function FinancesScreen() {
   // Handle Delete Transaction
   const handleDeleteTransaction = async (id: string, desc: string) => {
     if (!accessToken) return;
+    const txToDelete = (data?.transactions || []).find((t) => t.id === id);
     try {
       await deleteFinanceTransaction(accessToken, id);
       setFeedbackNotice(`Deleted transaction: ${desc}`);
+      if (txToDelete) {
+        setPendingUndo({
+          label: "Undo",
+          onUndo: async () => {
+            try {
+              await createFinanceTransaction(accessToken, {
+                workspace_id: currentWorkspace?.id,
+                account_id: txToDelete.account_id,
+                category_id: txToDelete.category_id,
+                savings_goal_id: txToDelete.savings_goal_id,
+                type: txToDelete.type,
+                amount: txToDelete.amount,
+                description: txToDelete.description,
+              });
+              await loadFinances(accessToken, currentWorkspace?.id);
+              setFeedbackNotice(`Restored transaction: "${txToDelete.description}"`);
+            } catch (err: any) {
+              setFeedbackNotice(err.message || "Failed to restore transaction.");
+            }
+          },
+        });
+      }
       await loadFinances(accessToken, currentWorkspace?.id);
     } catch (err: any) {
       setFeedbackNotice(err.message || "Failed to delete transaction.");
@@ -261,6 +565,8 @@ export default function FinancesScreen() {
     try {
       setIsSubmitting(true);
       setModalError(null);
+      const prevBudget = (data?.budgets || []).find((b) => b.category_id === budgetCatId);
+      const prevLimit = prevBudget ? prevBudget.monthly_limit : 0;
       await setFinanceBudget(accessToken, {
         workspace_id: currentWorkspace?.id,
         category_id: budgetCatId,
@@ -269,6 +575,22 @@ export default function FinancesScreen() {
       setShowBudgetModal(false);
       setBudgetLimit("");
       setFeedbackNotice("Monthly budget updated.");
+      setPendingUndo({
+        label: "Undo",
+        onUndo: async () => {
+          try {
+            await setFinanceBudget(accessToken, {
+              workspace_id: currentWorkspace?.id,
+              category_id: budgetCatId,
+              monthly_limit: prevLimit,
+            });
+            await loadFinances(accessToken, currentWorkspace?.id);
+            setFeedbackNotice("Reverted monthly budget limit.");
+          } catch (err: any) {
+            setFeedbackNotice(err.message || "Failed to revert budget.");
+          }
+        },
+      });
       await loadFinances(accessToken, currentWorkspace?.id);
     } catch (err: any) {
       setModalError(err.message || "Failed to set budget.");
@@ -297,23 +619,67 @@ export default function FinancesScreen() {
     try {
       setIsSubmitting(true);
       setModalError(null);
-      await createFinanceSavingsGoal(accessToken, {
-        workspace_id: currentWorkspace?.id,
-        name: goalName.trim(),
-        target_amount: parsedTarget,
-        current_amount: isNaN(parsedCurrent) ? 0 : parsedCurrent,
-        target_date: goalTargetDate.trim() || null,
-        account_id: goalAccountId || null,
-      });
-      setShowGoalModal(false);
+
+      if (editingGoal) {
+        const prevGoal = { ...editingGoal };
+        const updated = await updateFinanceSavingsGoal(accessToken, editingGoal.id, {
+          name: goalName.trim(),
+          target_amount: parsedTarget,
+          target_date: goalTargetDate.trim() || null,
+          account_id: goalAccountId || null,
+        });
+        setShowGoalModal(false);
+        setEditingGoal(null);
+        setFeedbackNotice(`Updated savings goal "${updated.name}".`);
+        setPendingUndo({
+          label: "Undo",
+          onUndo: async () => {
+            try {
+              await updateFinanceSavingsGoal(accessToken, prevGoal.id, {
+                name: prevGoal.name,
+                target_amount: prevGoal.target_amount,
+                target_date: prevGoal.target_date,
+                account_id: prevGoal.account_id,
+              });
+              await loadFinances(accessToken, currentWorkspace?.id);
+              setFeedbackNotice(`Reverted goal "${prevGoal.name}".`);
+            } catch (err: any) {
+              setFeedbackNotice(err.message || "Failed to revert goal.");
+            }
+          },
+        });
+      } else {
+        const createdGoal = await createFinanceSavingsGoal(accessToken, {
+          workspace_id: currentWorkspace?.id,
+          name: goalName.trim(),
+          target_amount: parsedTarget,
+          current_amount: isNaN(parsedCurrent) ? 0 : parsedCurrent,
+          target_date: goalTargetDate.trim() || null,
+          account_id: goalAccountId || null,
+        });
+        setShowGoalModal(false);
+        setFeedbackNotice(`Savings goal "${goalName.trim()}" created.`);
+        setPendingUndo({
+          label: "Undo",
+          onUndo: async () => {
+            try {
+              await deleteFinanceSavingsGoal(accessToken, createdGoal.id);
+              await loadFinances(accessToken, currentWorkspace?.id);
+              setFeedbackNotice(`Cancelled creation of "${createdGoal.name}".`);
+            } catch (err: any) {
+              setFeedbackNotice(err.message || "Failed to undo savings goal.");
+            }
+          },
+        });
+      }
+
       setGoalName("");
       setGoalTarget("");
       setGoalCurrent("0");
       setGoalTargetDate("");
-      setFeedbackNotice(`Savings goal "${goalName.trim()}" created.`);
       await loadFinances(accessToken, currentWorkspace?.id);
     } catch (err: any) {
-      setModalError(err.message || "Failed to create savings goal.");
+      setModalError(err.message || (editingGoal ? "Failed to update savings goal." : "Failed to create savings goal."));
       errorShake.triggerShake();
     } finally {
       setIsSubmitting(false);
@@ -358,9 +724,31 @@ export default function FinancesScreen() {
   // Handle Delete Goal
   const handleDeleteGoal = async (id: string, name: string) => {
     if (!accessToken) return;
+    const goalToDelete = (data?.savings_goals || []).find((g) => g.id === id);
     try {
       await deleteFinanceSavingsGoal(accessToken, id);
       setFeedbackNotice(`Removed savings goal "${name}".`);
+      if (goalToDelete) {
+        setPendingUndo({
+          label: "Undo",
+          onUndo: async () => {
+            try {
+              await createFinanceSavingsGoal(accessToken, {
+                workspace_id: currentWorkspace?.id,
+                name: goalToDelete.name,
+                target_amount: goalToDelete.target_amount,
+                current_amount: goalToDelete.current_amount,
+                target_date: goalToDelete.target_date,
+                account_id: goalToDelete.account_id,
+              });
+              await loadFinances(accessToken, currentWorkspace?.id);
+              setFeedbackNotice(`Restored savings goal "${goalToDelete.name}".`);
+            } catch (err: any) {
+              setFeedbackNotice(err.message || "Failed to restore goal.");
+            }
+          },
+        });
+      }
       await loadFinances(accessToken, currentWorkspace?.id);
     } catch (err: any) {
       setFeedbackNotice(err.message || "Failed to delete savings goal.");
@@ -380,19 +768,59 @@ export default function FinancesScreen() {
     try {
       setIsSubmitting(true);
       setModalError(null);
-      await createFinanceAccount(accessToken, {
-        workspace_id: currentWorkspace?.id,
-        name: accName.trim(),
-        type: accType,
-        balance: isNaN(parsedBalance) ? 0 : parsedBalance,
-      });
-      setShowAccountModal(false);
+
+      if (editingAccount) {
+        const prevAcc = { ...editingAccount };
+        const updated = await updateFinanceAccount(accessToken, editingAccount.id, {
+          name: accName.trim(),
+          type: accType,
+        });
+        setShowAccountModal(false);
+        setEditingAccount(null);
+        setFeedbackNotice(`Updated account "${updated.name}".`);
+        setPendingUndo({
+          label: "Undo",
+          onUndo: async () => {
+            try {
+              await updateFinanceAccount(accessToken, prevAcc.id, {
+                name: prevAcc.name,
+                type: prevAcc.type as any,
+              });
+              await loadFinances(accessToken, currentWorkspace?.id);
+              setFeedbackNotice(`Reverted account "${prevAcc.name}".`);
+            } catch (err: any) {
+              setFeedbackNotice(err.message || "Failed to revert account.");
+            }
+          },
+        });
+      } else {
+        const createdAccount = await createFinanceAccount(accessToken, {
+          workspace_id: currentWorkspace?.id,
+          name: accName.trim(),
+          type: accType,
+          balance: isNaN(parsedBalance) ? 0 : parsedBalance,
+        });
+        setShowAccountModal(false);
+        setFeedbackNotice(`Account "${accName.trim()}" added.`);
+        setPendingUndo({
+          label: "Undo",
+          onUndo: async () => {
+            try {
+              await deleteFinanceAccount(accessToken, createdAccount.id);
+              await loadFinances(accessToken, currentWorkspace?.id);
+              setFeedbackNotice(`Cancelled account "${createdAccount.name}".`);
+            } catch (err: any) {
+              setFeedbackNotice(err.message || "Failed to undo account creation.");
+            }
+          },
+        });
+      }
+
       setAccName("");
       setAccBalance("0");
-      setFeedbackNotice(`Account "${accName.trim()}" added.`);
       await loadFinances(accessToken, currentWorkspace?.id);
     } catch (err: any) {
-      setModalError(err.message || "Failed to create account.");
+      setModalError(err.message || (editingAccount ? "Failed to update account." : "Failed to create account."));
       errorShake.triggerShake();
     } finally {
       setIsSubmitting(false);
@@ -402,9 +830,29 @@ export default function FinancesScreen() {
   // Handle Delete Account
   const handleDeleteAccount = async (id: string, name: string) => {
     if (!accessToken) return;
+    const accToDelete = (data?.accounts || []).find((a) => a.id === id);
     try {
       await deleteFinanceAccount(accessToken, id);
       setFeedbackNotice(`Deleted account "${name}".`);
+      if (accToDelete) {
+        setPendingUndo({
+          label: "Undo",
+          onUndo: async () => {
+            try {
+              await createFinanceAccount(accessToken, {
+                workspace_id: currentWorkspace?.id,
+                name: accToDelete.name,
+                type: accToDelete.type as any,
+                balance: accToDelete.balance,
+              });
+              await loadFinances(accessToken, currentWorkspace?.id);
+              setFeedbackNotice(`Restored account "${accToDelete.name}".`);
+            } catch (err: any) {
+              setFeedbackNotice(err.message || "Failed to restore account.");
+            }
+          },
+        });
+      }
       await loadFinances(accessToken, currentWorkspace?.id);
     } catch (err: any) {
       setFeedbackNotice(err.message || "Failed to delete account.");
@@ -435,56 +883,29 @@ export default function FinancesScreen() {
         userEmail={authUser?.email}
         workspaceName={data?.workspace.name || currentWorkspace?.name || "Personal Workspace"}
         workspaceCurrency={currency}
+        onSignOut={handleSignOut}
       >
-        <ScrollView
-          contentContainerStyle={{
-            paddingHorizontal: isDesktop ? 32 : isTablet ? 24 : 16,
-            paddingTop: isDesktop ? 24 : 18,
-            paddingBottom: isDesktop ? 48 : 88,
-            gap: 20,
-            maxWidth: 1240,
-            width: "100%",
-            alignSelf: "center",
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Feedback notice toast */}
-          {feedbackNotice ? (
-            <View
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                borderRadius: tokens.radiusControl,
-                backgroundColor: tokens.financeSoft,
-                borderWidth: 1,
-                borderColor: tokens.finance,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                <MaterialIcons name="check-circle" size={18} color={tokens.finance} />
-                <Text
-                  style={{
-                    color: tokens.foreground,
-                    fontSize: 13,
-                    fontWeight: "700",
-                    flex: 1,
-                  }}
-                >
-                  {feedbackNotice}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Dismiss notice"
-                onPress={() => setFeedbackNotice(null)}
-              >
-                <MaterialIcons name="close" size={16} color={tokens.mutedForeground} />
-              </Pressable>
-            </View>
-          ) : null}
+        <View style={{ gap: 20, width: "100%" }}>
+          {/* Timed Feedback Notice with Automatic Progress Countdown & Cancel/Undo */}
+          <TimedNotice
+            message={feedbackNotice}
+            onDismiss={() => {
+              setFeedbackNotice(null);
+              setPendingUndo(null);
+            }}
+            onCancel={
+              pendingUndo
+                ? async () => {
+                    const undoAction = pendingUndo.onUndo;
+                    setPendingUndo(null);
+                    await undoAction();
+                  }
+                : undefined
+            }
+            cancelLabel={pendingUndo?.label || "Undo"}
+            durationMs={5200}
+            variant="finance"
+          />
 
           {/* Hero Net Worth & Monthly Cashflow Strip */}
           <Animated.View style={heroEntrance}>
@@ -529,7 +950,7 @@ export default function FinancesScreen() {
                         letterSpacing: 0.6,
                       }}
                     >
-                      Total Net Balance
+                      {t.totalNetBalance}
                     </Text>
                   </View>
                   <View
@@ -548,7 +969,7 @@ export default function FinancesScreen() {
                         fontFamily: "JetBrains Mono",
                       }}
                     >
-                      {summary?.accounts_count || 0} Accounts
+                      {summary?.accounts_count || 0} {t.accountsCount}
                     </Text>
                   </View>
                 </View>
@@ -572,14 +993,15 @@ export default function FinancesScreen() {
                       marginTop: 2,
                     }}
                   >
-                    Available liquid assets and reserves across all wallets
+                    {t.liquidReservesSubtitle}
                   </Text>
                 </View>
 
-                {/* Primary Action Button Bar */}
+                {/* Primary Action Button Bar (Flex-wrapped with minWidth for small screens) */}
                 <View
                   style={{
                     flexDirection: "row",
+                    flexWrap: "wrap",
                     gap: 10,
                     paddingTop: 8,
                     borderTopWidth: 1,
@@ -589,22 +1011,22 @@ export default function FinancesScreen() {
                   <Button
                     variant="primary"
                     size="sm"
-                    label="+ Log Transaction"
+                    label={t.logTransaction}
                     onPress={() => {
                       setModalError(null);
                       setShowTransactionModal(true);
                     }}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, minWidth: 140 }}
                   />
                   <Button
                     variant="outline"
                     size="sm"
-                    label="+ Add Wallet"
+                    label={t.addWallet}
                     onPress={() => {
                       setModalError(null);
                       setShowAccountModal(true);
                     }}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, minWidth: 140 }}
                   />
                 </View>
               </Card>
@@ -631,7 +1053,7 @@ export default function FinancesScreen() {
                       letterSpacing: 0.6,
                     }}
                   >
-                    Cashflow (This Month)
+                    {t.monthlyCashflow}
                   </Text>
                   <View
                     style={{
@@ -659,7 +1081,7 @@ export default function FinancesScreen() {
                 <View style={{ flexDirection: "row", gap: 12 }}>
                   <View style={{ flex: 1, gap: 4 }}>
                     <Text style={{ color: tokens.mutedForeground, fontSize: 11, fontWeight: "600" }}>
-                      Income
+                      {t.incomeLabel}
                     </Text>
                     <Text
                       style={{
@@ -674,7 +1096,7 @@ export default function FinancesScreen() {
                   </View>
                   <View style={{ flex: 1, gap: 4 }}>
                     <Text style={{ color: tokens.mutedForeground, fontSize: 11, fontWeight: "600" }}>
-                      Expenses
+                      {t.expenseLabel}
                     </Text>
                     <Text
                       style={{
@@ -692,7 +1114,7 @@ export default function FinancesScreen() {
                 {/* Savings Rate Bar */}
                 <View style={{ gap: 6 }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>Savings Rate</Text>
+                    <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>{t.netSavingsRate}</Text>
                     <Text
                       style={{
                         color: tokens.finance,
@@ -726,64 +1148,39 @@ export default function FinancesScreen() {
             </View>
           </Animated.View>
 
-          {/* 4 Top Pill-Tabs for Finances */}
+          {/* 4 Top Pill-Tabs for Finances (Horizontal scrollable on mobile/tablet so buttons never shrink or text overlap) */}
           <Animated.View style={tabsEntrance}>
             <View
               style={{
-                flexDirection: "row",
-                gap: 8,
-                padding: 4,
                 borderRadius: tokens.radiusControl,
                 backgroundColor: tokens.card,
                 borderWidth: 1,
                 borderColor: tokens.border,
+                padding: 4,
+                overflow: "hidden",
               }}
             >
-              {FINANCE_TABS.map((tab) => {
-                const isSelected = activeTab === tab.key;
-                return (
-                  <Pressable
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  flexDirection: "row",
+                  gap: 8,
+                  alignItems: "center",
+                  minWidth: isDesktop ? "100%" : undefined,
+                }}
+              >
+                {FINANCE_TABS.map((tab) => (
+                  <FinanceTabPill
                     key={tab.key}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: isSelected }}
-                    accessibilityLabel={`Switch to ${tab.label} tab`}
-                    onPress={() => setActiveTab(tab.key)}
-                    style={[
-                      {
-                        flex: 1,
-                        minHeight: 44,
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: tokens.radiusControl,
-                        backgroundColor: isSelected ? tokens.financeSoft : "transparent",
-                        borderWidth: 1,
-                        borderColor: isSelected ? tokens.finance : "transparent",
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                      },
-                      Platform.OS === "web" ? ({ cursor: "pointer" } as any) : null,
-                    ]}
-                  >
-                    <MaterialIcons
-                      name={tab.icon}
-                      size={17}
-                      color={isSelected ? tokens.finance : tokens.mutedForeground}
-                    />
-                    <Text
-                      style={{
-                        color: isSelected ? tokens.finance : tokens.foreground,
-                        fontSize: isDesktop ? 13 : 12,
-                        fontWeight: isSelected ? "800" : "600",
-                        fontFamily: "Plus Jakarta Sans",
-                      }}
-                    >
-                      {tab.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                    tab={tab}
+                    label={t[tab.labelKey]}
+                    isSelected={activeTab === tab.key}
+                    onSelect={() => setActiveTab(tab.key)}
+                    isDesktop={isDesktop}
+                  />
+                ))}
+              </ScrollView>
             </View>
           </Animated.View>
 
@@ -821,16 +1218,27 @@ export default function FinancesScreen() {
                         alignItems: isDesktop ? "center" : "stretch",
                       }}
                     >
-                      {/* Type filter chips */}
-                      <View style={{ flexDirection: "row", gap: 6 }}>
-                        {(["all", "expense", "income", "transfer"] as const).map((filter) => {
+                      {/* Type filter chips (Scrollable on narrow viewports) */}
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ flexDirection: "row", gap: 6, paddingVertical: 2 }}
+                      >
+                        {(
+                          [
+                            { key: "all", label: t.all },
+                            { key: "expense", label: t.expense },
+                            { key: "income", label: t.income },
+                            { key: "transfer", label: t.transfer },
+                          ] as const
+                        ).map(({ key: filter, label }) => {
                           const isSel = txTypeFilter === filter;
                           return (
                             <Pressable
                               key={filter}
                               accessibilityRole="button"
-                              accessibilityLabel={`Filter by ${filter}`}
-                              onPress={() => setTxTypeFilter(filter)}
+                              accessibilityLabel={`Filter by ${label}`}
+                              onPress={() => setTxTypeFilter(filter as any)}
                               style={[
                                 {
                                   minHeight: 36,
@@ -848,24 +1256,20 @@ export default function FinancesScreen() {
                                   color: isSel ? tokens.primaryForeground : tokens.mutedForeground,
                                   fontSize: 12,
                                   fontWeight: "700",
-                                  textTransform: "capitalize",
                                 }}
                               >
-                                {filter}
+                                {label}
                               </Text>
                             </Pressable>
                           );
                         })}
-                      </View>
+                      </ScrollView>
 
                       <Button
                         variant="primary"
                         size="sm"
-                        label="+ New Transaction"
-                        onPress={() => {
-                          setModalError(null);
-                          setShowTransactionModal(true);
-                        }}
+                        label={t.newTransaction}
+                        onPress={handleOpenAddTransaction}
                       />
                     </View>
 
@@ -873,52 +1277,159 @@ export default function FinancesScreen() {
                     {filteredTransactions.length === 0 ? (
                       <Card style={{ padding: 32, alignItems: "center", gap: 8 }}>
                         <MaterialIcons name="receipt-long" size={36} color={tokens.mutedForeground} />
-                        <Text style={{ color: tokens.foreground, fontWeight: "700" }}>No transactions logged yet</Text>
+                        <Text style={{ color: tokens.foreground, fontWeight: "700" }}>{t.noTransactionsYet}</Text>
                         <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>
-                          Tap "+ New Transaction" to record an expense, income, or transfer.
+                          {t.tapToRecord}
                         </Text>
                       </Card>
                     ) : (
-                      <Card style={{ padding: 6, gap: 2 }}>
+                      <Card style={{ padding: 6, gap: 4 }}>
                         {filteredTransactions.map((tx, idx) => {
                           const isIncome = tx.type === "income";
                           const isTransfer = tx.type === "transfer";
+
+                          if (isDesktop) {
+                            // Desktop: Spacious single-line layout
+                            return (
+                              <View
+                                key={tx.id}
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  paddingHorizontal: 14,
+                                  paddingVertical: 12,
+                                  borderRadius: tokens.radiusControl,
+                                  borderBottomWidth: idx < filteredTransactions.length - 1 ? 1 : 0,
+                                  borderBottomColor: tokens.border,
+                                }}
+                              >
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+                                  <View
+                                    style={{
+                                      width: 38,
+                                      height: 38,
+                                      borderRadius: 10,
+                                      backgroundColor: isIncome
+                                        ? tokens.financeSoft
+                                        : isTransfer
+                                        ? `${tokens.doo}22`
+                                        : tokens.muted,
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <MaterialIcons
+                                      name={(tx.category_icon as any) || "receipt"}
+                                      size={18}
+                                      color={isIncome ? tokens.finance : isTransfer ? tokens.doo : tokens.foreground}
+                                    />
+                                  </View>
+                                  <View style={{ flex: 1, minWidth: 0 }}>
+                                    <Text
+                                      numberOfLines={1}
+                                      style={{
+                                        color: tokens.foreground,
+                                        fontSize: 14,
+                                        fontWeight: "700",
+                                        fontFamily: "Plus Jakarta Sans",
+                                      }}
+                                    >
+                                      {tx.description}
+                                    </Text>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                                      <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
+                                        {tx.transaction_date}
+                                      </Text>
+                                      <Text style={{ color: tokens.border }}>•</Text>
+                                      <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
+                                        {tx.account_name}
+                                      </Text>
+                                      {tx.category_name ? (
+                                        <>
+                                          <Text style={{ color: tokens.border }}>•</Text>
+                                          <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
+                                            {tx.category_name}
+                                          </Text>
+                                        </>
+                                      ) : null}
+                                    </View>
+                                  </View>
+                                </View>
+
+                                {/* Amount & Action Buttons with explicit touch targets */}
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flexShrink: 0 }}>
+                                  <Text
+                                    style={{
+                                      color: isIncome ? tokens.finance : tokens.foreground,
+                                      fontSize: 15,
+                                      fontWeight: "800",
+                                      fontFamily: "JetBrains Mono",
+                                    }}
+                                  >
+                                    {isIncome ? "+" : isTransfer ? "⇄ " : "-"}
+                                    {formatCurrency(tx.amount, currency)}
+                                  </Text>
+
+                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, padding: 2 }}>
+                                    <IconButton
+                                      icon="edit"
+                                      size="sm"
+                                      variant="finance"
+                                      accessibilityLabel={`Edit transaction ${tx.description}`}
+                                      onPress={() => handleOpenEditTransaction(tx)}
+                                    />
+                                    <IconButton
+                                      icon="delete-outline"
+                                      size="sm"
+                                      variant="destructive"
+                                      accessibilityLabel={`Delete transaction ${tx.description}`}
+                                      onPress={() => setDeleteTargetTx(tx)}
+                                    />
+                                  </View>
+                                </View>
+                              </View>
+                            );
+                          }
+
+                          // Mobile / Tablet (< 1024px): 2-line thumb-friendly layout that prevents text overlapping
                           return (
                             <View
                               key={tx.id}
                               style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                paddingHorizontal: 14,
+                                paddingHorizontal: 12,
                                 paddingVertical: 12,
                                 borderRadius: tokens.radiusControl,
                                 borderBottomWidth: idx < filteredTransactions.length - 1 ? 1 : 0,
                                 borderBottomColor: tokens.border,
+                                gap: 10,
                               }}
                             >
-                              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
-                                <View
-                                  style={{
-                                    width: 36,
-                                    height: 36,
-                                    borderRadius: 10,
-                                    backgroundColor: isIncome
-                                      ? tokens.financeSoft
-                                      : isTransfer
-                                      ? `${tokens.doo}22`
-                                      : tokens.muted,
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                  }}
-                                >
-                                  <MaterialIcons
-                                    name={(tx.category_icon as any) || "receipt"}
-                                    size={18}
-                                    color={isIncome ? tokens.finance : isTransfer ? tokens.doo : tokens.foreground}
-                                  />
-                                </View>
-                                <View style={{ flex: 1 }}>
+                              {/* Row 1: Icon + Description (flex 1) + Amount (bold JetBrains Mono) */}
+                              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                                  <View
+                                    style={{
+                                      width: 34,
+                                      height: 34,
+                                      borderRadius: 9,
+                                      backgroundColor: isIncome
+                                        ? tokens.financeSoft
+                                        : isTransfer
+                                        ? `${tokens.doo}22`
+                                        : tokens.muted,
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <MaterialIcons
+                                      name={(tx.category_icon as any) || "receipt"}
+                                      size={17}
+                                      color={isIncome ? tokens.finance : isTransfer ? tokens.doo : tokens.foreground}
+                                    />
+                                  </View>
                                   <Text
                                     numberOfLines={1}
                                     style={{
@@ -926,61 +1437,79 @@ export default function FinancesScreen() {
                                       fontSize: 14,
                                       fontWeight: "700",
                                       fontFamily: "Plus Jakarta Sans",
+                                      flex: 1,
                                     }}
                                   >
                                     {tx.description}
                                   </Text>
-                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
-                                    <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
-                                      {tx.transaction_date}
-                                    </Text>
-                                    <Text style={{ color: tokens.border }}>•</Text>
-                                    <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
-                                      {tx.account_name}
-                                    </Text>
-                                    {tx.category_name ? (
-                                      <>
-                                        <Text style={{ color: tokens.border }}>•</Text>
-                                        <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
-                                          {tx.category_name}
-                                        </Text>
-                                      </>
-                                    ) : null}
-                                  </View>
                                 </View>
-                              </View>
 
-                              {/* Amount & Delete */}
-                              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                                 <Text
                                   style={{
                                     color: isIncome ? tokens.finance : tokens.foreground,
-                                    fontSize: 14,
+                                    fontSize: 15,
                                     fontWeight: "800",
                                     fontFamily: "JetBrains Mono",
+                                    flexShrink: 0,
                                   }}
                                 >
                                   {isIncome ? "+" : isTransfer ? "⇄ " : "-"}
                                   {formatCurrency(tx.amount, currency)}
                                 </Text>
+                              </View>
 
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel={`Delete transaction ${tx.description}`}
-                                  onPress={() => handleDeleteTransaction(tx.id, tx.description)}
-                                  style={[
-                                    {
-                                      width: 28,
-                                      height: 28,
-                                      borderRadius: 6,
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                    },
-                                    Platform.OS === "web" ? ({ cursor: "pointer" } as any) : null,
-                                  ]}
-                                >
-                                  <MaterialIcons name="delete-outline" size={16} color={tokens.mutedForeground} />
-                                </Pressable>
+                              {/* Row 2: Metadata Pills on left + Edit/Delete Buttons safely separated on right */}
+                              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1, flexWrap: "wrap" }}>
+                                  <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
+                                    {tx.transaction_date}
+                                  </Text>
+                                  <Text style={{ color: tokens.border }}>•</Text>
+                                  <View
+                                    style={{
+                                      paddingHorizontal: 6,
+                                      paddingVertical: 1.5,
+                                      borderRadius: 4,
+                                      backgroundColor: tokens.muted,
+                                    }}
+                                  >
+                                    <Text style={{ color: tokens.mutedForeground, fontSize: 10, fontWeight: "600" }}>
+                                      {tx.account_name}
+                                    </Text>
+                                  </View>
+                                  {tx.category_name ? (
+                                    <View
+                                      style={{
+                                        paddingHorizontal: 6,
+                                        paddingVertical: 1.5,
+                                        borderRadius: 4,
+                                        backgroundColor: tokens.financeSoft,
+                                      }}
+                                    >
+                                      <Text style={{ color: tokens.finance, fontSize: 10, fontWeight: "700" }}>
+                                        {tx.category_name}
+                                      </Text>
+                                    </View>
+                                  ) : null}
+                                </View>
+
+                                {/* Distinct touch target action buttons */}
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                                  <IconButton
+                                    icon="edit"
+                                    size="sm"
+                                    variant="finance"
+                                    accessibilityLabel={`Edit transaction ${tx.description}`}
+                                    onPress={() => handleOpenEditTransaction(tx)}
+                                  />
+                                  <IconButton
+                                    icon="delete-outline"
+                                    size="sm"
+                                    variant="destructive"
+                                    accessibilityLabel={`Delete transaction ${tx.description}`}
+                                    onPress={() => setDeleteTargetTx(tx)}
+                                  />
+                                </View>
                               </View>
                             </View>
                           );
@@ -1002,16 +1531,16 @@ export default function FinancesScreen() {
                     >
                       <View>
                         <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "800" }}>
-                          Monthly Category Limits
+                          {t.monthlyCategoryLimits}
                         </Text>
                         <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>
-                          Period: {data?.period_month}
+                          {t.period}: {data?.period_month}
                         </Text>
                       </View>
                       <Button
                         variant="primary"
                         size="sm"
-                        label="+ Set Budget"
+                        label={t.setBudget}
                         onPress={() => {
                           setModalError(null);
                           setShowBudgetModal(true);
@@ -1095,13 +1624,43 @@ export default function FinancesScreen() {
                             />
                           </View>
 
-                          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                            <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
-                              Spent: <Text style={{ fontFamily: "JetBrains Mono", color: tokens.foreground }}>{formatCurrency(b.spent_amount, currency)}</Text>
-                            </Text>
-                            <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
-                              Limit: <Text style={{ fontFamily: "JetBrains Mono", color: tokens.foreground }}>{formatCurrency(b.monthly_limit, currency)}</Text>
-                            </Text>
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                            <View>
+                              <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
+                                Spent: <Text style={{ fontFamily: "JetBrains Mono", color: tokens.foreground }}>{formatCurrency(b.spent_amount, currency)}</Text>
+                              </Text>
+                              <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>
+                                Limit: <Text style={{ fontFamily: "JetBrains Mono", color: tokens.foreground }}>{formatCurrency(b.monthly_limit, currency)}</Text>
+                              </Text>
+                            </View>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Edit ${b.category_name} budget`}
+                              onPress={() => handleOpenEditBudget(b.category_id, b.monthly_limit)}
+                              style={({ hovered }: any) => [
+                                {
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 5,
+                                  borderRadius: tokens.radiusControl,
+                                  backgroundColor: hovered ? tokens.financeSoft : tokens.muted,
+                                  borderWidth: 1,
+                                  borderColor: hovered ? tokens.finance : "transparent",
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: 4,
+                                },
+                                Platform.OS === "web"
+                                  ? ({
+                                      cursor: "pointer",
+                                      transform: hovered ? "translateY(-1.5px) scale(1.02)" : "none",
+                                      transition: "all 160ms cubic-bezier(0.16, 1, 0.3, 1)",
+                                    } as any)
+                                  : null,
+                              ]}
+                            >
+                              <MaterialIcons name="edit" size={13} color={tokens.foreground} />
+                              <Text style={{ color: tokens.foreground, fontSize: 11, fontWeight: "700" }}>Edit</Text>
+                            </Pressable>
                           </View>
                         </Card>
                       ))}
@@ -1121,20 +1680,17 @@ export default function FinancesScreen() {
                     >
                       <View>
                         <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "800" }}>
-                          Active Savings Goals
+                          {t.activeSavingsGoals}
                         </Text>
                         <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>
-                          {formatCurrency(summary?.total_goals_saved || 0, currency)} saved toward {formatCurrency(summary?.total_goals_target || 0, currency)}
+                          {formatCurrency(summary?.total_goals_saved || 0, currency)} {t.savedToward} {formatCurrency(summary?.total_goals_target || 0, currency)}
                         </Text>
                       </View>
                       <Button
                         variant="primary"
                         size="sm"
-                        label="+ New Goal"
-                        onPress={() => {
-                          setModalError(null);
-                          setShowGoalModal(true);
-                        }}
+                        label={t.newGoal}
+                        onPress={handleOpenAddGoal}
                       />
                     </View>
 
@@ -1182,13 +1738,22 @@ export default function FinancesScreen() {
                               </View>
                             </View>
 
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={`Delete goal ${goal.name}`}
-                              onPress={() => handleDeleteGoal(goal.id, goal.name)}
-                            >
-                              <MaterialIcons name="delete-outline" size={17} color={tokens.mutedForeground} />
-                            </Pressable>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, padding: 2 }}>
+                              <IconButton
+                                icon="edit"
+                                size="sm"
+                                variant="finance"
+                                accessibilityLabel={`Edit goal ${goal.name}`}
+                                onPress={() => handleOpenEditGoal(goal)}
+                              />
+                              <IconButton
+                                icon="delete-outline"
+                                size="sm"
+                                variant="destructive"
+                                accessibilityLabel={`Delete goal ${goal.name}`}
+                                onPress={() => setDeleteTargetGoal(goal)}
+                              />
+                            </View>
                           </View>
 
                           {/* Goal progress */}
@@ -1232,7 +1797,7 @@ export default function FinancesScreen() {
                             <Button
                               variant="secondary"
                               size="sm"
-                              label="Transfer / Fund Goal"
+                              label={t.transferFundGoal}
                               onPress={() => {
                                 setSelectedGoalForFunding(goal);
                                 setModalError(null);
@@ -1259,20 +1824,17 @@ export default function FinancesScreen() {
                     >
                       <View>
                         <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "800" }}>
-                          Connected Wallets & Accounts
+                          {t.connectedWalletsAndAccounts}
                         </Text>
                         <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>
-                          {data?.accounts.length || 0} active accounts
+                          {data?.accounts.length || 0} {t.activeAccountsCount}
                         </Text>
                       </View>
                       <Button
                         variant="primary"
                         size="sm"
-                        label="+ Add Account"
-                        onPress={() => {
-                          setModalError(null);
-                          setShowAccountModal(true);
-                        }}
+                        label={t.addAccount}
+                        onPress={handleOpenAddAccount}
                       />
                     </View>
 
@@ -1318,17 +1880,26 @@ export default function FinancesScreen() {
                               </View>
                             </View>
 
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={`Delete account ${acc.name}`}
-                              onPress={() => handleDeleteAccount(acc.id, acc.name)}
-                            >
-                              <MaterialIcons name="delete-outline" size={17} color={tokens.mutedForeground} />
-                            </Pressable>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, padding: 2 }}>
+                              <IconButton
+                                icon="edit"
+                                size="sm"
+                                variant="finance"
+                                accessibilityLabel={`Edit account ${acc.name}`}
+                                onPress={() => handleOpenEditAccount(acc)}
+                              />
+                              <IconButton
+                                icon="delete-outline"
+                                size="sm"
+                                variant="destructive"
+                                accessibilityLabel={`Delete account ${acc.name}`}
+                                onPress={() => setDeleteTargetAccount(acc)}
+                              />
+                            </View>
                           </View>
 
                           <View>
-                            <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>Current Balance</Text>
+                            <Text style={{ color: tokens.mutedForeground, fontSize: 11 }}>{t.currentBalance}</Text>
                             <Text
                               style={{
                                 color: tokens.foreground,
@@ -1349,7 +1920,7 @@ export default function FinancesScreen() {
               </>
             )}
           </Animated.View>
-        </ScrollView>
+        </View>
       </AdaptiveShell>
 
       {/* 1. LOG TRANSACTION MODAL */}
@@ -1363,9 +1934,14 @@ export default function FinancesScreen() {
                 backgroundColor: tokens.card,
                 borderColor: tokens.border,
                 maxWidth: isDesktop ? 480 : "100%",
+                maxHeight: "90%",
               },
             ]}
           >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ gap: 16, paddingBottom: 4 }}
+            >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <Text style={{ color: tokens.foreground, fontSize: 16, fontWeight: "800", fontFamily: "Plus Jakarta Sans" }}>
                 Log Transaction
@@ -1461,10 +2037,18 @@ export default function FinancesScreen() {
               />
             </View>
 
+            {/* Transaction Date (DatePicker) */}
+            <DatePicker
+              label="TRANSACTION DATE (OPTIONAL)"
+              value={txDate}
+              onChange={setTxDate}
+              placeholder="Today (or pick date)"
+            />
+
             {/* Account Selector */}
             <View style={{ gap: 4 }}>
               <Text style={{ color: tokens.mutedForeground, fontSize: 11, fontWeight: "700" }}>ACCOUNT</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 4, paddingVertical: 6 }}>
                 {(data?.accounts || []).map((acc) => (
                   <Pressable
                     key={acc.id}
@@ -1499,7 +2083,7 @@ export default function FinancesScreen() {
             {txType !== "transfer" && (
               <View style={{ gap: 4 }}>
                 <Text style={{ color: tokens.mutedForeground, fontSize: 11, fontWeight: "700" }}>CATEGORY</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 4, paddingVertical: 6 }}>
                   {(data?.categories || []).map((cat) => (
                     <Pressable
                       key={cat.id}
@@ -1537,6 +2121,7 @@ export default function FinancesScreen() {
               onPress={handleConfirmTransaction}
               disabled={isSubmitting}
             />
+            </ScrollView>
           </View>
         </View>
       )}
@@ -1573,7 +2158,7 @@ export default function FinancesScreen() {
             {/* Category */}
             <View style={{ gap: 4 }}>
               <Text style={{ color: tokens.mutedForeground, fontSize: 11, fontWeight: "700" }}>CATEGORY</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 4, paddingVertical: 6 }}>
                 {(data?.categories || []).map((cat) => (
                   <Pressable
                     key={cat.id}
@@ -1651,7 +2236,7 @@ export default function FinancesScreen() {
             ]}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ color: tokens.foreground, fontSize: 16, fontWeight: "800" }}>New Savings Goal</Text>
+              <Text style={{ color: tokens.foreground, fontSize: 16, fontWeight: "800" }}>{editingGoal ? "Edit Savings Goal" : "New Savings Goal"}</Text>
               <Pressable accessibilityLabel="Close goal modal" onPress={() => setShowGoalModal(false)}>
                 <MaterialIcons name="close" size={20} color={tokens.mutedForeground} />
               </Pressable>
@@ -1719,24 +2304,12 @@ export default function FinancesScreen() {
               />
             </View>
 
-            <View style={{ gap: 4 }}>
-              <Text style={{ color: tokens.mutedForeground, fontSize: 11, fontWeight: "700" }}>TARGET DATE (OPTIONAL, YYYY-MM-DD)</Text>
-              <TextInput
-                placeholder="2026-12-31"
-                placeholderTextColor={tokens.mutedForeground}
-                value={goalTargetDate}
-                onChangeText={setGoalTargetDate}
-                style={[
-                  styles.input,
-                  {
-                    color: tokens.foreground,
-                    backgroundColor: tokens.background,
-                    borderColor: tokens.border,
-                    fontFamily: "JetBrains Mono",
-                  },
-                ]}
-              />
-            </View>
+            <DatePicker
+              label="TARGET DATE (OPTIONAL)"
+              value={goalTargetDate}
+              onChange={setGoalTargetDate}
+              placeholder="e.g. 2026-12-31"
+            />
 
             <Button
               variant="primary"
@@ -1803,7 +2376,7 @@ export default function FinancesScreen() {
             {/* Source Account */}
             <View style={{ gap: 4 }}>
               <Text style={{ color: tokens.mutedForeground, fontSize: 11, fontWeight: "700" }}>DEDUCT FROM ACCOUNT</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 4, paddingVertical: 6 }}>
                 {(data?.accounts || []).map((acc) => (
                   <Pressable
                     key={acc.id}
@@ -1925,25 +2498,27 @@ export default function FinancesScreen() {
               </View>
             </View>
 
-            <View style={{ gap: 4 }}>
-              <Text style={{ color: tokens.mutedForeground, fontSize: 11, fontWeight: "700" }}>STARTING BALANCE ({currency})</Text>
-              <TextInput
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={tokens.mutedForeground}
-                value={accBalance}
-                onChangeText={setAccBalance}
-                style={[
-                  styles.input,
-                  {
-                    color: tokens.foreground,
-                    backgroundColor: tokens.background,
-                    borderColor: tokens.border,
-                    fontFamily: "JetBrains Mono",
-                  },
-                ]}
-              />
-            </View>
+            {!editingAccount && (
+              <View style={{ gap: 4 }}>
+                <Text style={{ color: tokens.mutedForeground, fontSize: 11, fontWeight: "700" }}>STARTING BALANCE ({currency})</Text>
+                <TextInput
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  placeholderTextColor={tokens.mutedForeground}
+                  value={accBalance}
+                  onChangeText={setAccBalance}
+                  style={[
+                    styles.input,
+                    {
+                      color: tokens.foreground,
+                      backgroundColor: tokens.background,
+                      borderColor: tokens.border,
+                      fontFamily: "JetBrains Mono",
+                    },
+                  ]}
+                />
+              </View>
+            )}
 
             <Button
               variant="primary"
@@ -1955,6 +2530,75 @@ export default function FinancesScreen() {
           </View>
         </View>
       )}
+
+      {/* Delete Confirmation Modal for Transactions */}
+      <ConfirmDeleteModal
+        visible={!!deleteTargetTx}
+        title={t.deleteConfirmTitle}
+        description={t.deleteConfirmDesc}
+        itemTitle={deleteTargetTx ? `${deleteTargetTx.description} (${formatCurrency(deleteTargetTx.amount, currency)})` : undefined}
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        isDeleting={isDeletingItem}
+        onCancel={() => setDeleteTargetTx(null)}
+        onConfirm={async () => {
+          if (!deleteTargetTx) return;
+          try {
+            setIsDeletingItem(true);
+            const target = deleteTargetTx;
+            setDeleteTargetTx(null);
+            await handleDeleteTransaction(target.id, target.description);
+          } finally {
+            setIsDeletingItem(false);
+          }
+        }}
+      />
+
+      {/* Delete Confirmation Modal for Savings Goals */}
+      <ConfirmDeleteModal
+        visible={!!deleteTargetGoal}
+        title="Delete Savings Goal?"
+        description="Are you sure you want to remove this savings goal? You can restore it immediately using the Undo button."
+        itemTitle={deleteTargetGoal?.name}
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        isDeleting={isDeletingItem}
+        onCancel={() => setDeleteTargetGoal(null)}
+        onConfirm={async () => {
+          if (!deleteTargetGoal) return;
+          try {
+            setIsDeletingItem(true);
+            const target = deleteTargetGoal;
+            setDeleteTargetGoal(null);
+            await handleDeleteGoal(target.id, target.name);
+          } finally {
+            setIsDeletingItem(false);
+          }
+        }}
+      />
+
+      {/* Delete Confirmation Modal for Accounts */}
+      <ConfirmDeleteModal
+        visible={!!deleteTargetAccount}
+        title="Delete Connected Account?"
+        description="Are you sure you want to remove this account? Existing transactions will remain but you will lose the wallet reference."
+        itemTitle={deleteTargetAccount?.name}
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        isDeleting={isDeletingItem}
+        onCancel={() => setDeleteTargetAccount(null)}
+        onConfirm={async () => {
+          if (!deleteTargetAccount) return;
+          try {
+            setIsDeletingItem(true);
+            const target = deleteTargetAccount;
+            setDeleteTargetAccount(null);
+            await handleDeleteAccount(target.id, target.name);
+          } finally {
+            setIsDeletingItem(false);
+          }
+        }}
+      />
     </View>
   );
 }
@@ -1967,9 +2611,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
+    ...(Platform.OS === "web" ? ({ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 } as any) : {}),
   },
   modalSheet: {
     width: "100%",
+    maxHeight: "92%",
     borderRadius: 20,
     borderWidth: 1,
     padding: 22,

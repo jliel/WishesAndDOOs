@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -31,11 +32,9 @@ def verify_password(password_hash: str, password: str) -> bool:
 
 
 def create_access_token(
-    user_id: str,
-    email: str,
-    default_workspace_id: str | None = None,
+    user_id: str, default_workspace_id: str, email: str
 ) -> str:
-    """Create a short-lived signed JWT access token (default 15 minutes)."""
+    """Issue a short-lived (15 min) HMAC-SHA256 JWT access token."""
     now = datetime.now(timezone.utc)
     expires_delta: timedelta = current_app.config.get(
         "JWT_ACCESS_TOKEN_EXPIRES", timedelta(minutes=15)
@@ -71,3 +70,27 @@ def generate_refresh_token() -> tuple[str, str]:
     """Generate a high-entropy cryptographic refresh token and its SHA-256 hash."""
     raw_token = secrets.token_urlsafe(48)
     return raw_token, hash_refresh_token(raw_token)
+
+
+def generate_signed_image_token(workspace_id: str, filename: str, expires_in_seconds: int = 3600) -> tuple[int, str]:
+    """Generate an expiration timestamp and HMAC-SHA256 signature for accessing a private workspace image."""
+    exp = int((datetime.now(timezone.utc) + timedelta(seconds=expires_in_seconds)).timestamp())
+    secret = current_app.config["JWT_SECRET_KEY"].encode("utf-8")
+    message = f"{workspace_id}:{filename}:{exp}".encode("utf-8")
+    sig = hmac.new(secret, message, hashlib.sha256).hexdigest()
+    return exp, sig
+
+
+def verify_signed_image_token(workspace_id: str, filename: str, exp_val: str | int, sig: str) -> bool:
+    """Verify that the HMAC signature matches and has not expired."""
+    try:
+        exp = int(exp_val)
+    except (ValueError, TypeError):
+        return False
+    now = int(datetime.now(timezone.utc).timestamp())
+    if now > exp:
+        return False
+    secret = current_app.config["JWT_SECRET_KEY"].encode("utf-8")
+    expected_message = f"{workspace_id}:{filename}:{exp}".encode("utf-8")
+    expected_sig = hmac.new(secret, expected_message, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig, expected_sig)

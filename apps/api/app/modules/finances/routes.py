@@ -10,6 +10,7 @@ from app.modules.finances.schemas import (
     SavingsGoalFundRequest,
     SavingsGoalUpdateRequest,
     TransactionCreateRequest,
+    TransactionUpdateRequest,
 )
 from app.modules.finances.service import (
     FinancesError,
@@ -19,6 +20,7 @@ from app.modules.finances.service import (
     delete_account,
     delete_savings_goal,
     delete_transaction,
+    update_transaction,
     fund_savings_goal,
     get_finances_overview,
     list_accounts,
@@ -120,7 +122,11 @@ def list_transactions_route():
     account_id = request.args.get("account_id")
     category_id = request.args.get("category_id")
     type_filter = request.args.get("type")
-    limit = int(request.args.get("limit", 100))
+    raw_limit = request.args.get("limit", "100")
+    try:
+        limit = max(1, min(int(raw_limit), 500))
+    except (ValueError, TypeError):
+        limit = 100
     data = list_transactions(
         user=g.current_user,
         workspace_id=workspace_id,
@@ -145,6 +151,20 @@ def create_transaction_route():
         ip_address=request.remote_addr,
     )
     return jsonify({"status": "confirmed", "transaction": created}), 201
+
+
+@finances_bp.route("/transactions/<string:transaction_id>", methods=["PUT", "PATCH"])
+@require_auth
+def update_transaction_route(transaction_id: str):
+    raw_data = request.get_json(silent=True) or {}
+    payload = TransactionUpdateRequest.model_validate(raw_data)
+    updated = update_transaction(
+        user=g.current_user,
+        transaction_id=transaction_id,
+        payload=payload,
+        ip_address=request.remote_addr,
+    )
+    return jsonify({"status": "confirmed", "transaction": updated}), 200
 
 
 @finances_bp.route("/transactions/<string:transaction_id>", methods=["DELETE"])

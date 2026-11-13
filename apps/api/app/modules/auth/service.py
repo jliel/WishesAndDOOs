@@ -545,8 +545,11 @@ def revoke_session_token(
             return
 
     if user_id:
+        db.session.query(UserSession).filter_by(user_id=user_id, is_revoked=False).update(
+            {"is_revoked": True}
+        )
         record_audit_event(
-            event_type="logout",
+            event_type="logout_all_sessions",
             user_id=user_id,
             ip_address=ip_address,
         )

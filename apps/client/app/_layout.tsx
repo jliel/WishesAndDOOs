@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider, useAppTheme } from "@/theme/ThemeProvider";
+import { LanguageProvider } from "@/i18n/LanguageProvider";
 
 function ThemedRootNavigator() {
   const { colorMode, tokens } = useAppTheme();
@@ -46,7 +47,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider initialStyle="classical" initialMode="light">
-          <ThemedRootNavigator />
+          <LanguageProvider>
+            <ThemedRootNavigator />
+          </LanguageProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
